@@ -16,6 +16,12 @@ import Lightning.Protocol.BOLT1 (TlvStream(..))
 import Lightning.Protocol.BOLT2
 import Weigh
 
+-- | Wrapper for encoding functions that return Either.
+forceEncode :: Either EncodeError BS.ByteString -> BS.ByteString
+forceEncode (Right bs) = bs
+forceEncode (Left e)   = error $ "forceEncode: " ++ show e
+{-# INLINE forceEncode #-}
+
 -- Test data construction ------------------------------------------------------
 
 -- | 32 zero bytes for channel IDs, chain hashes, etc.
@@ -207,7 +213,9 @@ testTxSignatures = mkTxSignatures testChannelId testTxId testWitnesses
 
 -- | Encoded TxSignatures for decode benchmarks.
 encodedTxSignatures :: BS.ByteString
-encodedTxSignatures = encodeTxSignatures testTxSignatures
+encodedTxSignatures = case encodeTxSignatures testTxSignatures of
+  Right bs -> bs
+  Left e   -> error $ "encodedTxSignatures: " ++ show e
 {-# NOINLINE encodedTxSignatures #-}
 
 -- | Test ClosingSigned message.
@@ -244,8 +252,48 @@ testCommitmentSigned =
 
 -- | Encoded CommitmentSigned for decode benchmarks.
 encodedCommitmentSigned :: BS.ByteString
-encodedCommitmentSigned = encodeCommitmentSigned testCommitmentSigned
+encodedCommitmentSigned = case encodeCommitmentSigned testCommitmentSigned of
+  Right bs -> bs
+  Left e   -> error $ "encodedCommitmentSigned: " ++ show e
 {-# NOINLINE encodedCommitmentSigned #-}
+
+-- | Large HTLC signatures for CommitmentSigned (100).
+testHtlcSigsLarge :: [Signature]
+testHtlcSigsLarge = replicate 100 testSignature
+{-# NOINLINE testHtlcSigsLarge #-}
+
+-- | Test CommitmentSigned message (100 sigs).
+testCommitmentSignedLarge :: CommitmentSigned
+testCommitmentSignedLarge =
+  mkCommitmentSigned testChannelId testSignature testHtlcSigsLarge
+{-# NOINLINE testCommitmentSignedLarge #-}
+
+-- | Encoded large CommitmentSigned for decode benchmarks.
+encodedCommitmentSignedLarge :: BS.ByteString
+encodedCommitmentSignedLarge =
+  case encodeCommitmentSigned testCommitmentSignedLarge of
+    Right bs -> bs
+    Left e   -> error $ "encodedCommitmentSignedLarge: " ++ show e
+{-# NOINLINE encodedCommitmentSignedLarge #-}
+
+-- | Max HTLC signatures for CommitmentSigned (483).
+testHtlcSigsMax :: [Signature]
+testHtlcSigsMax = replicate 483 testSignature
+{-# NOINLINE testHtlcSigsMax #-}
+
+-- | Test CommitmentSigned message (483 sigs).
+testCommitmentSignedMax :: CommitmentSigned
+testCommitmentSignedMax =
+  mkCommitmentSigned testChannelId testSignature testHtlcSigsMax
+{-# NOINLINE testCommitmentSignedMax #-}
+
+-- | Encoded max CommitmentSigned for decode benchmarks.
+encodedCommitmentSignedMax :: BS.ByteString
+encodedCommitmentSignedMax =
+  case encodeCommitmentSigned testCommitmentSignedMax of
+    Right bs -> bs
+    Left e   -> error $ "encodedCommitmentSignedMax: " ++ show e
+{-# NOINLINE encodedCommitmentSignedMax #-}
 
 -- Weigh benchmarks ------------------------------------------------------------
 
@@ -267,7 +315,7 @@ main = mainWith $ do
 
   wgroup "v2/tx_signatures" $ do
     func "construct" (mkTxSignatures testChannelId testTxId) testWitnesses
-    func "encode" encodeTxSignatures testTxSignatures
+    func "encode" (forceEncode . encodeTxSignatures) testTxSignatures
     func "decode" decodeTxSignatures encodedTxSignatures
 
   -- Close messages
@@ -286,5 +334,11 @@ main = mainWith $ do
   wgroup "normal/commitment_signed" $ do
     func "construct" (mkCommitmentSigned testChannelId testSignature)
       testHtlcSigs
-    func "encode" encodeCommitmentSigned testCommitmentSigned
+    func "encode" (forceEncode . encodeCommitmentSigned) testCommitmentSigned
     func "decode" decodeCommitmentSigned encodedCommitmentSigned
+
+  wgroup "normal/commitment_signed_100" $ do
+    func "decode" decodeCommitmentSigned encodedCommitmentSignedLarge
+
+  wgroup "normal/commitment_signed_483" $ do
+    func "decode" decodeCommitmentSigned encodedCommitmentSignedMax

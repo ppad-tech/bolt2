@@ -200,7 +200,7 @@ encodedUpdateAddHtlc :: BS.ByteString
 encodedUpdateAddHtlc = encodeUpdateAddHtlc testUpdateAddHtlc
 {-# NOINLINE encodedUpdateAddHtlc #-}
 
--- | Test CommitmentSigned message with HTLC signatures.
+-- | Test CommitmentSigned message with HTLC signatures (10 sigs).
 testCommitmentSigned :: CommitmentSigned
 testCommitmentSigned = CommitmentSigned
   { commitmentSignedChannelId      = testChannelId
@@ -215,6 +215,40 @@ encodedCommitmentSigned = case encodeCommitmentSigned testCommitmentSigned of
   Right bs -> bs
   Left e   -> error $ "encodedCommitmentSigned: " ++ show e
 {-# NOINLINE encodedCommitmentSigned #-}
+
+-- | Test CommitmentSigned with many HTLC signatures (100 sigs).
+testCommitmentSignedLarge :: CommitmentSigned
+testCommitmentSignedLarge = CommitmentSigned
+  { commitmentSignedChannelId      = testChannelId
+  , commitmentSignedSignature      = testSignature
+  , commitmentSignedHtlcSignatures = replicate 100 testSignature
+  }
+{-# NOINLINE testCommitmentSignedLarge #-}
+
+-- | Encoded large CommitmentSigned for decode benchmarks.
+encodedCommitmentSignedLarge :: BS.ByteString
+encodedCommitmentSignedLarge =
+  case encodeCommitmentSigned testCommitmentSignedLarge of
+    Right bs -> bs
+    Left e   -> error $ "encodedCommitmentSignedLarge: " ++ show e
+{-# NOINLINE encodedCommitmentSignedLarge #-}
+
+-- | Test CommitmentSigned with max HTLC signatures (483 sigs).
+testCommitmentSignedMax :: CommitmentSigned
+testCommitmentSignedMax = CommitmentSigned
+  { commitmentSignedChannelId      = testChannelId
+  , commitmentSignedSignature      = testSignature
+  , commitmentSignedHtlcSignatures = replicate 483 testSignature
+  }
+{-# NOINLINE testCommitmentSignedMax #-}
+
+-- | Encoded max CommitmentSigned for decode benchmarks.
+encodedCommitmentSignedMax :: BS.ByteString
+encodedCommitmentSignedMax =
+  case encodeCommitmentSigned testCommitmentSignedMax of
+    Right bs -> bs
+    Left e   -> error $ "encodedCommitmentSignedMax: " ++ show e
+{-# NOINLINE encodedCommitmentSignedMax #-}
 
 -- Benchmark groups ------------------------------------------------------------
 
@@ -250,6 +284,18 @@ main = defaultMain
       , bgroup "commitment_signed"
           [ bench "encode" $ nf encodeCommitmentSigned testCommitmentSigned
           , bench "decode" $ nf decodeCommitmentSigned encodedCommitmentSigned
+          ]
+      , bgroup "commitment_signed_100"
+          [ bench "encode" $
+              nf encodeCommitmentSigned testCommitmentSignedLarge
+          , bench "decode" $
+              nf decodeCommitmentSigned encodedCommitmentSignedLarge
+          ]
+      , bgroup "commitment_signed_483"
+          [ bench "encode" $
+              nf encodeCommitmentSigned testCommitmentSignedMax
+          , bench "decode" $
+              nf decodeCommitmentSigned encodedCommitmentSignedMax
           ]
       ]
   ]
