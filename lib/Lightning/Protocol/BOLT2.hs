@@ -1,7 +1,4 @@
 {-# OPTIONS_HADDOCK prune #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
 
 -- |
 -- Module: Lightning.Protocol.BOLT2
@@ -13,6 +10,10 @@
 -- [BOLT #2](https://github.com/lightning/bolts/blob/master/02-peer-protocol.md).
 
 module Lightning.Protocol.BOLT2 (
+  -- * Core types
+  -- | Re-exported from "Lightning.Protocol.BOLT2.Types".
+    module Lightning.Protocol.BOLT2.Types
+
   -- * Message types
   -- $messagetypes
 
@@ -32,17 +33,7 @@ module Lightning.Protocol.BOLT2 (
   -- $reestablish
   ) where
 
-import Control.DeepSeq (NFData)
-import qualified Data.ByteString as BS
-import Data.Word (Word16, Word32, Word64)
-import GHC.Generics (Generic)
-
--- re-export primitives from BOLT1
-import Lightning.Protocol.BOLT1 (
-    encodeU16, encodeU32, encodeU64
-  , decodeU16, decodeU32, decodeU64
-  , encodeBigSize, decodeBigSize
-  )
+import Lightning.Protocol.BOLT2.Types
 
 -- $messagetypes
 --
