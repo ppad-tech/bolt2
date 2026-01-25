@@ -1123,6 +1123,7 @@ encodeUpdateAddHtlc !m = mconcat
   , unOnionPacket (updateAddHtlcOnionPacket m)
   , encodeTlvStream (updateAddHtlcTlvs m)
   ]
+{-# INLINABLE encodeUpdateAddHtlc #-}
 
 -- | Decode an UpdateAddHtlc message (type 128).
 decodeUpdateAddHtlc
@@ -1147,6 +1148,7 @@ decodeUpdateAddHtlc !bs = do
         , updateAddHtlcTlvs        = tlvs
         }
   Right (msg, rest7)
+{-# INLINABLE decodeUpdateAddHtlc #-}
 
 -- | Encode an UpdateFulfillHtlc message (type 130).
 encodeUpdateFulfillHtlc :: UpdateFulfillHtlc -> BS.ByteString
@@ -1238,6 +1240,7 @@ encodeCommitmentSigned !m = do
     , unSignature (commitmentSignedSignature m)
     , encodeU16 numHtlcs
     ] ++ map unSignature sigs
+{-# INLINABLE encodeCommitmentSigned #-}
 
 -- | Decode a CommitmentSigned message (type 132).
 decodeCommitmentSigned
@@ -1264,6 +1267,7 @@ decodeCommitmentSigned !bs = do
         go !count !remaining !acc = do
           (s, rest) <- decodeSignatureBytes remaining
           go (count - 1) rest (s : acc)
+{-# INLINABLE decodeCommitmentSigned #-}
 
 -- | Encode a RevokeAndAck message (type 133).
 encodeRevokeAndAck :: RevokeAndAck -> BS.ByteString
