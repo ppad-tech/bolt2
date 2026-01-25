@@ -25,6 +25,7 @@ library
       -Wall
   exposed-modules:
       Lightning.Protocol.BOLT2
+      Lightning.Protocol.BOLT2.Codec
       Lightning.Protocol.BOLT2.Messages
       Lightning.Protocol.BOLT2.Types
   build-depends:
