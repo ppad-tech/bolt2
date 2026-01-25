@@ -67,6 +67,7 @@ benchmark bolt2-bench
     , bytestring
     , criterion
     , deepseq
+    , ppad-bolt1
     , ppad-bolt2
 
 benchmark bolt2-weigh
@@ -82,5 +83,6 @@ benchmark bolt2-weigh
       base
     , bytestring
     , deepseq
+    , ppad-bolt1
     , ppad-bolt2
     , weigh
