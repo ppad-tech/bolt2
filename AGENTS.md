@@ -134,6 +134,7 @@ When planning work:
 - Consider forking subagents for concurrent work on independent steps
 - Write implementation plans to `plans/IMPL<n>.md` if the project uses
   this convention
+- Record outstanding design decisions and deferred work to `plans/TODO`
 
 ## Flake Structure
 

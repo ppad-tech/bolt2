@@ -526,7 +526,7 @@ instance NFData CommitmentSigned
 -- of the commitment_signed.
 data RevokeAndAck = RevokeAndAck
   { revokeAndAckChannelId             :: !ChannelId
-  , revokeAndAckPerCommitmentSecret   :: !BS.ByteString
+  , revokeAndAckPerCommitmentSecret   :: !Secret
   , revokeAndAckNextPerCommitPoint    :: !Point
   } deriving stock (Eq, Show, Generic)
 
@@ -551,7 +551,7 @@ data ChannelReestablish = ChannelReestablish
   { channelReestablishChannelId            :: !ChannelId
   , channelReestablishNextCommitNum        :: {-# UNPACK #-} !Word64
   , channelReestablishNextRevocationNum    :: {-# UNPACK #-} !Word64
-  , channelReestablishYourLastCommitSecret :: !BS.ByteString
+  , channelReestablishYourLastCommitSecret :: !Secret
   , channelReestablishMyCurrentCommitPoint :: !Point
   , channelReestablishTlvs                 :: !TlvStream
   } deriving stock (Eq, Show, Generic)

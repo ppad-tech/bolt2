@@ -1,0 +1,38 @@
+# Outstanding Design Decisions
+
+## TLV Unknown-Even Rule Enforcement
+
+Per BOLT spec, unknown TLV types with even type numbers must cause message
+rejection. Currently `decodeTlvStreamRaw` (from ppad-bolt1) does not enforce
+this rule.
+
+Options:
+1. Enforce in ppad-bolt1's TLV decoder
+2. Add a validation layer in ppad-bolt2 that wraps decoded messages
+3. Leave to application layer
+
+Recommendation: Enforce in ppad-bolt1 since it's a fundamental TLV rule.
+
+## Flake Dependency Path
+
+flake.nix currently uses a local filesystem path for ppad-bolt1:
+
+```nix
+ppad-bolt1 = {
+  type = "path";
+  path = "/Users/jtobin/src/ppad/bolt1";
+  ...
+};
+```
+
+This was a workaround for network connectivity issues. Should be reverted
+to git URL when appropriate:
+
+```nix
+ppad-bolt1 = {
+  type = "git";
+  url  = "git://git.ppad.tech/bolt1.git";
+  ref  = "master";
+  ...
+};
+```

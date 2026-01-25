@@ -126,6 +126,7 @@ data DecodeError
   | DecodeInvalidPaymentHash
   | DecodeInvalidPaymentPreimage
   | DecodeInvalidOnionPacket
+  | DecodeInvalidSecret
   | DecodeTlvError !TlvError
   deriving stock (Eq, Show, Generic)
 
@@ -272,17 +273,29 @@ decodeOnionPacketBytes !bs = do
   Right (op, rest)
 {-# INLINE decodeOnionPacketBytes #-}
 
--- | Decode bytes using Either.
-decodeBytesE
-  :: Int -> BS.ByteString -> Either DecodeError (BS.ByteString, BS.ByteString)
-decodeBytesE !n !bs = maybe (Left DecodeInsufficientBytes) Right
-                        (decodeBytes n bs)
-{-# INLINE decodeBytesE #-}
+-- | Decode a Secret (32 bytes).
+decodeSecretBytes
+  :: BS.ByteString -> Either DecodeError (Secret, BS.ByteString)
+decodeSecretBytes !bs = do
+  (raw, rest) <- maybe (Left DecodeInsufficientBytes) Right
+                   (decodeBytes secretLen bs)
+  sec <- maybe (Left DecodeInvalidSecret) Right (secret raw)
+  Right (sec, rest)
+{-# INLINE decodeSecretBytes #-}
 
--- | Encode a u16-prefixed byte string.
-encodeU16Bytes :: BS.ByteString -> BS.ByteString
-encodeU16Bytes !bs = encodeU16 (fromIntegral (BS.length bs)) <> bs
-{-# INLINE encodeU16Bytes #-}
+-- | Encode a u16-prefixed byte string with bounds checking.
+encodeU16BytesE :: BS.ByteString -> Either EncodeError BS.ByteString
+encodeU16BytesE !bs
+  | BS.length bs > 65535 = Left EncodeLengthOverflow
+  | otherwise = Right $! encodeU16 (fromIntegral (BS.length bs)) <> bs
+{-# INLINE encodeU16BytesE #-}
+
+-- | Check that a list count fits in u16.
+checkListCountU16 :: Int -> Either EncodeError Word16
+checkListCountU16 !n
+  | n > 65535 = Left EncodeLengthOverflow
+  | otherwise = Right $! fromIntegral n
+{-# INLINE checkListCountU16 #-}
 
 -- | Decode a u16-prefixed byte string.
 decodeU16Bytes
@@ -877,14 +890,16 @@ decodeAcceptChannel2 !bs = do
   Right (msg, BS.empty)
 
 -- | Encode a TxAddInput message (type 66).
-encodeTxAddInput :: TxAddInput -> BS.ByteString
-encodeTxAddInput !msg = mconcat
-  [ unChannelId (txAddInputChannelId msg)
-  , encodeU64 (txAddInputSerialId msg)
-  , encodeU16Bytes (txAddInputPrevTx msg)
-  , encodeU32 (txAddInputPrevVout msg)
-  , encodeU32 (txAddInputSequence msg)
-  ]
+encodeTxAddInput :: TxAddInput -> Either EncodeError BS.ByteString
+encodeTxAddInput !msg = do
+  prevTxEnc <- encodeU16BytesE (txAddInputPrevTx msg)
+  Right $! mconcat
+    [ unChannelId (txAddInputChannelId msg)
+    , encodeU64 (txAddInputSerialId msg)
+    , prevTxEnc
+    , encodeU32 (txAddInputPrevVout msg)
+    , encodeU32 (txAddInputSequence msg)
+    ]
 
 -- | Decode a TxAddInput message (type 66).
 decodeTxAddInput
@@ -906,13 +921,15 @@ decodeTxAddInput !bs = do
   Right (msg, rest5)
 
 -- | Encode a TxAddOutput message (type 67).
-encodeTxAddOutput :: TxAddOutput -> BS.ByteString
-encodeTxAddOutput !msg = mconcat
-  [ unChannelId (txAddOutputChannelId msg)
-  , encodeU64 (txAddOutputSerialId msg)
-  , encodeU64 (unSatoshis (txAddOutputSats msg))
-  , encodeU16Bytes (unScriptPubKey (txAddOutputScript msg))
-  ]
+encodeTxAddOutput :: TxAddOutput -> Either EncodeError BS.ByteString
+encodeTxAddOutput !msg = do
+  scriptEnc <- encodeU16BytesE (unScriptPubKey (txAddOutputScript msg))
+  Right $! mconcat
+    [ unChannelId (txAddOutputChannelId msg)
+    , encodeU64 (txAddOutputSerialId msg)
+    , encodeU64 (unSatoshis (txAddOutputSats msg))
+    , scriptEnc
+    ]
 
 -- | Decode a TxAddOutput message (type 67).
 decodeTxAddOutput
@@ -983,9 +1000,9 @@ decodeTxComplete !bs = do
   let !msg = TxComplete { txCompleteChannelId = cid }
   Right (msg, rest)
 
--- | Encode a single witness.
-encodeWitness :: Witness -> BS.ByteString
-encodeWitness (Witness !wdata) = encodeU16Bytes wdata
+-- | Encode a single witness with bounds checking.
+encodeWitnessE :: Witness -> Either EncodeError BS.ByteString
+encodeWitnessE (Witness !wdata) = encodeU16BytesE wdata
 
 -- | Decode a single witness.
 decodeWitness :: BS.ByteString -> Either DecodeError (Witness, BS.ByteString)
@@ -994,15 +1011,16 @@ decodeWitness !bs = do
   Right (Witness wdata, rest)
 
 -- | Encode a TxSignatures message (type 71).
-encodeTxSignatures :: TxSignatures -> BS.ByteString
-encodeTxSignatures !msg =
+encodeTxSignatures :: TxSignatures -> Either EncodeError BS.ByteString
+encodeTxSignatures !msg = do
   let !witnesses = txSignaturesWitnesses msg
-      !numWit = fromIntegral (length witnesses) :: Word16
-  in  mconcat $
-        [ unChannelId (txSignaturesChannelId msg)
-        , unTxId (txSignaturesTxid msg)
-        , encodeU16 numWit
-        ] ++ map encodeWitness witnesses
+  numWit <- checkListCountU16 (length witnesses)
+  encodedWits <- traverse encodeWitnessE witnesses
+  Right $! mconcat $
+    [ unChannelId (txSignaturesChannelId msg)
+    , unTxId (txSignaturesTxid msg)
+    , encodeU16 numWit
+    ] ++ encodedWits
 
 -- | Decode a TxSignatures message (type 71).
 decodeTxSignatures
@@ -1072,11 +1090,13 @@ decodeTxAckRbf !bs = do
   Right (msg, BS.empty)
 
 -- | Encode a TxAbort message (type 74).
-encodeTxAbort :: TxAbort -> BS.ByteString
-encodeTxAbort !msg = mconcat
-  [ unChannelId (txAbortChannelId msg)
-  , encodeU16Bytes (txAbortData msg)
-  ]
+encodeTxAbort :: TxAbort -> Either EncodeError BS.ByteString
+encodeTxAbort !msg = do
+  dataEnc <- encodeU16BytesE (txAbortData msg)
+  Right $! mconcat
+    [ unChannelId (txAbortChannelId msg)
+    , dataEnc
+    ]
 
 -- | Decode a TxAbort message (type 74).
 decodeTxAbort
@@ -1155,13 +1175,15 @@ decodeUpdateFulfillHtlc !bs = do
   Right (msg, rest4)
 
 -- | Encode an UpdateFailHtlc message (type 131).
-encodeUpdateFailHtlc :: UpdateFailHtlc -> BS.ByteString
-encodeUpdateFailHtlc !m = mconcat
-  [ unChannelId (updateFailHtlcChannelId m)
-  , encodeU64 (updateFailHtlcId m)
-  , encodeU16Bytes (updateFailHtlcReason m)
-  , encodeTlvStream (updateFailHtlcTlvs m)
-  ]
+encodeUpdateFailHtlc :: UpdateFailHtlc -> Either EncodeError BS.ByteString
+encodeUpdateFailHtlc !m = do
+  reasonEnc <- encodeU16BytesE (updateFailHtlcReason m)
+  Right $! mconcat
+    [ unChannelId (updateFailHtlcChannelId m)
+    , encodeU64 (updateFailHtlcId m)
+    , reasonEnc
+    , encodeTlvStream (updateFailHtlcTlvs m)
+    ]
 
 -- | Decode an UpdateFailHtlc message (type 131).
 decodeUpdateFailHtlc
@@ -1207,15 +1229,15 @@ decodeUpdateFailMalformedHtlc !bs = do
   Right (msg, rest4)
 
 -- | Encode a CommitmentSigned message (type 132).
-encodeCommitmentSigned :: CommitmentSigned -> BS.ByteString
-encodeCommitmentSigned !m = mconcat $
-  [ unChannelId (commitmentSignedChannelId m)
-  , unSignature (commitmentSignedSignature m)
-  , encodeU16 numHtlcs
-  ] ++ map unSignature sigs
-  where
-    !sigs = commitmentSignedHtlcSignatures m
-    !numHtlcs = fromIntegral (length sigs) :: Word16
+encodeCommitmentSigned :: CommitmentSigned -> Either EncodeError BS.ByteString
+encodeCommitmentSigned !m = do
+  let !sigs = commitmentSignedHtlcSignatures m
+  numHtlcs <- checkListCountU16 (length sigs)
+  Right $! mconcat $
+    [ unChannelId (commitmentSignedChannelId m)
+    , unSignature (commitmentSignedSignature m)
+    , encodeU16 numHtlcs
+    ] ++ map unSignature sigs
 
 -- | Decode a CommitmentSigned message (type 132).
 decodeCommitmentSigned
@@ -1247,7 +1269,7 @@ decodeCommitmentSigned !bs = do
 encodeRevokeAndAck :: RevokeAndAck -> BS.ByteString
 encodeRevokeAndAck !m = mconcat
   [ unChannelId (revokeAndAckChannelId m)
-  , revokeAndAckPerCommitmentSecret m
+  , unSecret (revokeAndAckPerCommitmentSecret m)
   , unPoint (revokeAndAckNextPerCommitPoint m)
   ]
 
@@ -1256,11 +1278,11 @@ decodeRevokeAndAck
   :: BS.ByteString -> Either DecodeError (RevokeAndAck, BS.ByteString)
 decodeRevokeAndAck !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (secret, rest2) <- decodeBytesE 32 rest1
+  (sec, rest2) <- decodeSecretBytes rest1
   (nextPoint, rest3) <- decodePointBytes rest2
   let !msg = RevokeAndAck
         { revokeAndAckChannelId           = cid
-        , revokeAndAckPerCommitmentSecret = secret
+        , revokeAndAckPerCommitmentSecret = sec
         , revokeAndAckNextPerCommitPoint  = nextPoint
         }
   Right (msg, rest3)
@@ -1292,7 +1314,7 @@ encodeChannelReestablish !m = mconcat
   [ unChannelId (channelReestablishChannelId m)
   , encodeU64 (channelReestablishNextCommitNum m)
   , encodeU64 (channelReestablishNextRevocationNum m)
-  , channelReestablishYourLastCommitSecret m
+  , unSecret (channelReestablishYourLastCommitSecret m)
   , unPoint (channelReestablishMyCurrentCommitPoint m)
   , encodeTlvStream (channelReestablishTlvs m)
   ]
@@ -1306,14 +1328,14 @@ decodeChannelReestablish !bs = do
                            (decodeU64 rest1)
   (nextRevoke, rest3) <- maybe (Left DecodeInsufficientBytes) Right
                            (decodeU64 rest2)
-  (lastSecret, rest4) <- decodeBytesE 32 rest3
+  (sec, rest4) <- decodeSecretBytes rest3
   (myPoint, rest5) <- decodePointBytes rest4
   (tlvs, rest6) <- decodeOptionalTlvs rest5
   let !msg = ChannelReestablish
         { channelReestablishChannelId            = cid
         , channelReestablishNextCommitNum        = nextCommit
         , channelReestablishNextRevocationNum    = nextRevoke
-        , channelReestablishYourLastCommitSecret = lastSecret
+        , channelReestablishYourLastCommitSecret = sec
         , channelReestablishMyCurrentCommitPoint = myPoint
         , channelReestablishTlvs                 = tlvs
         }

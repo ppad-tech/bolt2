@@ -61,6 +61,10 @@ testPaymentPreimage = fromJust $ paymentPreimage (BS.replicate 32 0xbb)
 testOnionPacket :: OnionPacket
 testOnionPacket = fromJust $ onionPacket (BS.replicate 1366 0x00)
 
+-- | Create a valid Secret (32 bytes).
+testSecret :: Secret
+testSecret = fromJust $ secret (BS.replicate 32 0x11)
+
 -- | Empty TLV stream for messages.
 emptyTlvs :: TlvStream
 emptyTlvs = TlvStream []
@@ -237,10 +241,11 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
               , txAddInputPrevVout = 0
               , txAddInputSequence = 0xfffffffe
               }
-            encoded = encodeTxAddInput msg
-        case decodeTxAddInput encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeTxAddInput msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeTxAddInput encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     , testCase "roundtrip with empty prevTx" $ do
         let msg = TxAddInput
               { txAddInputChannelId = testChannelId
@@ -249,10 +254,11 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
               , txAddInputPrevVout = 0
               , txAddInputSequence = 0
               }
-            encoded = encodeTxAddInput msg
-        case decodeTxAddInput encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeTxAddInput msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeTxAddInput encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     ]
   , testGroup "TxAddOutput" [
       testCase "encode/decode roundtrip" $ do
@@ -263,10 +269,11 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
               , txAddOutputScript = scriptPubKey (BS.pack [0x00, 0x14] <>
                                                   BS.replicate 20 0xaa)
               }
-            encoded = encodeTxAddOutput msg
-        case decodeTxAddOutput encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeTxAddOutput msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeTxAddOutput encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     ]
   , testGroup "TxRemoveInput" [
       testCase "encode/decode roundtrip" $ do
@@ -305,10 +312,11 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
               , txSignaturesTxid = testTxId
               , txSignaturesWitnesses = []
               }
-            encoded = encodeTxSignatures msg
-        case decodeTxSignatures encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeTxSignatures msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeTxSignatures encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     , testCase "encode/decode with multiple witnesses" $ do
         let w1 = Witness (BS.pack [0x30, 0x44] <> BS.replicate 68 0xaa)
             w2 = Witness (BS.pack [0x02] <> BS.replicate 32 0xbb)
@@ -317,10 +325,11 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
               , txSignaturesTxid = testTxId
               , txSignaturesWitnesses = [w1, w2]
               }
-            encoded = encodeTxSignatures msg
-        case decodeTxSignatures encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeTxSignatures msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeTxSignatures encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     ]
   , testGroup "TxInitRbf" [
       testCase "encode/decode roundtrip" $ do
@@ -352,19 +361,21 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
               { txAbortChannelId = testChannelId
               , txAbortData = "transaction abort reason"
               }
-            encoded = encodeTxAbort msg
-        case decodeTxAbort encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeTxAbort msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeTxAbort encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     , testCase "roundtrip with empty data" $ do
         let msg = TxAbort
               { txAbortChannelId = testChannelId
               , txAbortData = BS.empty
               }
-            encoded = encodeTxAbort msg
-        case decodeTxAbort encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeTxAbort msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeTxAbort encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     ]
   ]
 
@@ -514,10 +525,11 @@ normal_operation_tests = testGroup "Normal Operation" [
               , updateFailHtlcReason = BS.replicate 32 0xaa
               , updateFailHtlcTlvs = emptyTlvs
               }
-            encoded = encodeUpdateFailHtlc msg
-        case decodeUpdateFailHtlc encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeUpdateFailHtlc msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeUpdateFailHtlc encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     , testCase "roundtrip with empty reason" $ do
         let msg = UpdateFailHtlc
               { updateFailHtlcChannelId = testChannelId
@@ -525,10 +537,11 @@ normal_operation_tests = testGroup "Normal Operation" [
               , updateFailHtlcReason = BS.empty
               , updateFailHtlcTlvs = emptyTlvs
               }
-            encoded = encodeUpdateFailHtlc msg
-        case decodeUpdateFailHtlc encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeUpdateFailHtlc msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeUpdateFailHtlc encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     ]
   , testGroup "UpdateFailMalformedHtlc" [
       testCase "encode/decode roundtrip" $ do
@@ -550,10 +563,11 @@ normal_operation_tests = testGroup "Normal Operation" [
               , commitmentSignedSignature = testSignature
               , commitmentSignedHtlcSignatures = []
               }
-            encoded = encodeCommitmentSigned msg
-        case decodeCommitmentSigned encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeCommitmentSigned msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeCommitmentSigned encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     , testCase "encode/decode with HTLC signatures" $ do
         let sig2 = fromJust $ signature (BS.replicate 64 0xdd)
             sig3 = fromJust $ signature (BS.replicate 64 0xee)
@@ -562,16 +576,17 @@ normal_operation_tests = testGroup "Normal Operation" [
               , commitmentSignedSignature = testSignature
               , commitmentSignedHtlcSignatures = [sig2, sig3]
               }
-            encoded = encodeCommitmentSigned msg
-        case decodeCommitmentSigned encoded of
-          Right (decoded, _) -> decoded @?= msg
-          Left e -> assertFailure $ "decode failed: " ++ show e
+        case encodeCommitmentSigned msg of
+          Left e -> assertFailure $ "encode failed: " ++ show e
+          Right encoded -> case decodeCommitmentSigned encoded of
+            Right (decoded, _) -> decoded @?= msg
+            Left e -> assertFailure $ "decode failed: " ++ show e
     ]
   , testGroup "RevokeAndAck" [
       testCase "encode/decode roundtrip" $ do
         let msg = RevokeAndAck
               { revokeAndAckChannelId = testChannelId
-              , revokeAndAckPerCommitmentSecret = BS.replicate 32 0x11
+              , revokeAndAckPerCommitmentSecret = testSecret
               , revokeAndAckNextPerCommitPoint = testPoint
               }
             encoded = encodeRevokeAndAck msg
@@ -597,11 +612,12 @@ normal_operation_tests = testGroup "Normal Operation" [
 reestablish_tests :: TestTree
 reestablish_tests = testGroup "Channel Reestablish" [
     testCase "encode/decode roundtrip" $ do
-      let msg = ChannelReestablish
+      let sec = fromJust $ secret (BS.replicate 32 0x22)
+          msg = ChannelReestablish
             { channelReestablishChannelId = testChannelId
             , channelReestablishNextCommitNum = 5
             , channelReestablishNextRevocationNum = 4
-            , channelReestablishYourLastCommitSecret = BS.replicate 32 0x22
+            , channelReestablishYourLastCommitSecret = sec
             , channelReestablishMyCurrentCommitPoint = testPoint
             , channelReestablishTlvs = emptyTlvs
             }
@@ -610,11 +626,12 @@ reestablish_tests = testGroup "Channel Reestablish" [
         Right (decoded, _) -> decoded @?= msg
         Left e -> assertFailure $ "decode failed: " ++ show e
   , testCase "roundtrip with zero counters" $ do
-      let msg = ChannelReestablish
+      let sec = fromJust $ secret (BS.replicate 32 0x00)
+          msg = ChannelReestablish
             { channelReestablishChannelId = testChannelId
             , channelReestablishNextCommitNum = 1
             , channelReestablishNextRevocationNum = 0
-            , channelReestablishYourLastCommitSecret = BS.replicate 32 0x00
+            , channelReestablishYourLastCommitSecret = sec
             , channelReestablishMyCurrentCommitPoint = testPoint
             , channelReestablishTlvs = emptyTlvs
             }
@@ -957,10 +974,11 @@ propTxAddInputRoundtrip prevTxBytes vout seqNum = property $ do
         , txAddInputPrevVout = vout
         , txAddInputSequence = seqNum
         }
-      encoded = encodeTxAddInput msg
-  case decodeTxAddInput encoded of
-    Right (decoded, _) -> decoded == msg
+  case encodeTxAddInput msg of
     Left _ -> False
+    Right encoded -> case decodeTxAddInput encoded of
+      Right (decoded, _) -> decoded == msg
+      Left _ -> False
 
 -- Property: TxAddOutput roundtrip
 propTxAddOutputRoundtrip :: Word64 -> [Word8] -> Property
@@ -972,10 +990,11 @@ propTxAddOutputRoundtrip sats scriptBytes = property $ do
         , txAddOutputSats = Satoshis sats
         , txAddOutputScript = script
         }
-      encoded = encodeTxAddOutput msg
-  case decodeTxAddOutput encoded of
-    Right (decoded, _) -> decoded == msg
+  case encodeTxAddOutput msg of
     Left _ -> False
+    Right encoded -> case decodeTxAddOutput encoded of
+      Right (decoded, _) -> decoded == msg
+      Left _ -> False
 
 -- Property: TxRemoveInput roundtrip
 propTxRemoveInputRoundtrip :: Word64 -> Property
@@ -1019,10 +1038,11 @@ propTxSignaturesRoundtrip witnessList = property $ do
         , txSignaturesTxid = testTxId
         , txSignaturesWitnesses = wits
         }
-      encoded = encodeTxSignatures msg
-  case decodeTxSignatures encoded of
-    Right (decoded, _) -> decoded == msg
+  case encodeTxSignatures msg of
     Left _ -> False
+    Right encoded -> case decodeTxSignatures encoded of
+      Right (decoded, _) -> decoded == msg
+      Left _ -> False
 
 -- Property: TxInitRbf roundtrip
 propTxInitRbfRoundtrip :: Word32 -> Word32 -> Property
@@ -1058,10 +1078,11 @@ propTxAbortRoundtrip dataBytes = property $ do
         { txAbortChannelId = testChannelId
         , txAbortData = abortData
         }
-      encoded = encodeTxAbort msg
-  case decodeTxAbort encoded of
-    Right (decoded, _) -> decoded == msg
+  case encodeTxAbort msg of
     Left _ -> False
+    Right encoded -> case decodeTxAbort encoded of
+      Right (decoded, _) -> decoded == msg
+      Left _ -> False
 
 -- Property: Stfu roundtrip
 propStfuRoundtrip :: Word8 -> Property
@@ -1186,10 +1207,11 @@ propUpdateFailHtlcRoundtrip htlcId reasonBytes = property $ do
         , updateFailHtlcReason = failReason
         , updateFailHtlcTlvs = emptyTlvs
         }
-      encoded = encodeUpdateFailHtlc msg
-  case decodeUpdateFailHtlc encoded of
-    Right (decoded, _) -> decoded == msg
+  case encodeUpdateFailHtlc msg of
     Left _ -> False
+    Right encoded -> case decodeUpdateFailHtlc encoded of
+      Right (decoded, _) -> decoded == msg
+      Left _ -> False
 
 -- Property: UpdateFailMalformedHtlc roundtrip
 propUpdateFailMalformedHtlcRoundtrip :: Word64 -> Word16 -> Property
@@ -1215,17 +1237,18 @@ propCommitmentSignedRoundtrip (NonNegative n) = property $ do
         , commitmentSignedSignature = testSignature
         , commitmentSignedHtlcSignatures = htlcSigs
         }
-      encoded = encodeCommitmentSigned msg
-  case decodeCommitmentSigned encoded of
-    Right (decoded, _) -> decoded == msg
+  case encodeCommitmentSigned msg of
     Left _ -> False
+    Right encoded -> case decodeCommitmentSigned encoded of
+      Right (decoded, _) -> decoded == msg
+      Left _ -> False
 
 -- Property: RevokeAndAck roundtrip
 propRevokeAndAckRoundtrip :: Property
 propRevokeAndAckRoundtrip = property $ do
   let msg = RevokeAndAck
         { revokeAndAckChannelId = testChannelId
-        , revokeAndAckPerCommitmentSecret = BS.replicate 32 0x11
+        , revokeAndAckPerCommitmentSecret = testSecret
         , revokeAndAckNextPerCommitPoint = testPoint
         }
       encoded = encodeRevokeAndAck msg
@@ -1248,11 +1271,12 @@ propUpdateFeeRoundtrip feerate = property $ do
 -- Property: ChannelReestablish roundtrip
 propChannelReestablishRoundtrip :: Word64 -> Word64 -> Property
 propChannelReestablishRoundtrip nextCommit nextRevoke = property $ do
-  let msg = ChannelReestablish
+  let sec = fromJust $ secret (BS.replicate 32 0x22)
+      msg = ChannelReestablish
         { channelReestablishChannelId = testChannelId
         , channelReestablishNextCommitNum = nextCommit
         , channelReestablishNextRevocationNum = nextRevoke
-        , channelReestablishYourLastCommitSecret = BS.replicate 32 0x22
+        , channelReestablishYourLastCommitSecret = sec
         , channelReestablishMyCurrentCommitPoint = testPoint
         , channelReestablishTlvs = emptyTlvs
         }
@@ -1263,8 +1287,6 @@ propChannelReestablishRoundtrip nextCommit nextRevoke = property $ do
 
 -- Helpers ---------------------------------------------------------------------
 
--- | Decode hex string. Fails the test on invalid hex.
-unhex :: BS.ByteString -> BS.ByteString
-unhex bs = case B16.decode bs of
-  Just r  -> r
-  Nothing -> error $ "invalid hex: " ++ show bs
+-- | Decode hex string. Returns Nothing on invalid hex.
+unhex :: BS.ByteString -> Maybe BS.ByteString
+unhex = B16.decode

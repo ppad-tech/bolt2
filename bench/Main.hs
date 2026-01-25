@@ -158,7 +158,9 @@ testTxSignatures = TxSignatures
 
 -- | Encoded TxSignatures for decode benchmarks.
 encodedTxSignatures :: BS.ByteString
-encodedTxSignatures = encodeTxSignatures testTxSignatures
+encodedTxSignatures = case encodeTxSignatures testTxSignatures of
+  Right bs -> bs
+  Left e   -> error $ "encodedTxSignatures: " ++ show e
 {-# NOINLINE encodedTxSignatures #-}
 
 -- Close messages --------------------------------------------------------------
@@ -209,7 +211,9 @@ testCommitmentSigned = CommitmentSigned
 
 -- | Encoded CommitmentSigned for decode benchmarks.
 encodedCommitmentSigned :: BS.ByteString
-encodedCommitmentSigned = encodeCommitmentSigned testCommitmentSigned
+encodedCommitmentSigned = case encodeCommitmentSigned testCommitmentSigned of
+  Right bs -> bs
+  Left e   -> error $ "encodedCommitmentSigned: " ++ show e
 {-# NOINLINE encodedCommitmentSigned #-}
 
 -- Benchmark groups ------------------------------------------------------------

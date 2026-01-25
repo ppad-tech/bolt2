@@ -40,6 +40,9 @@ module Lightning.Protocol.BOLT2.Types (
   , PaymentPreimage
   , paymentPreimage
   , unPaymentPreimage
+  , Secret
+  , secret
+  , unSecret
 
   -- * Transaction types
   , TxId
@@ -78,6 +81,7 @@ module Lightning.Protocol.BOLT2.Types (
   , paymentHashLen
   , paymentPreimageLen
   , onionPacketLen
+  , secretLen
   ) where
 
 import Control.DeepSeq (NFData)
@@ -132,6 +136,11 @@ paymentPreimageLen = 32
 onionPacketLen :: Int
 onionPacketLen = 1366
 {-# INLINE onionPacketLen #-}
+
+-- | Length of a per-commitment secret in bytes (32).
+secretLen :: Int
+secretLen = 32
+{-# INLINE secretLen #-}
 
 -- identifiers -----------------------------------------------------------------
 
@@ -289,6 +298,28 @@ paymentPreimage !bs
 unPaymentPreimage :: PaymentPreimage -> BS.ByteString
 unPaymentPreimage (PaymentPreimage bs) = bs
 {-# INLINE unPaymentPreimage #-}
+
+-- | A 32-byte per-commitment secret.
+--
+-- Used in revoke_and_ack and channel_reestablish messages to revoke
+-- old commitment transactions.
+newtype Secret = Secret BS.ByteString
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving newtype NFData
+
+-- | Construct a 'Secret' from a 32-byte 'BS.ByteString'.
+--
+-- Returns 'Nothing' if the input is not exactly 32 bytes.
+secret :: BS.ByteString -> Maybe Secret
+secret !bs
+  | BS.length bs == secretLen = Just $! Secret bs
+  | otherwise                 = Nothing
+{-# INLINE secret #-}
+
+-- | Extract the underlying 'BS.ByteString' from a 'Secret'.
+unSecret :: Secret -> BS.ByteString
+unSecret (Secret bs) = bs
+{-# INLINE unSecret #-}
 
 -- transaction types -----------------------------------------------------------
 
