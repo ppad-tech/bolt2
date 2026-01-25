@@ -167,7 +167,7 @@ channelId :: BS.ByteString -> Maybe ChannelId
 channelId !bs
   | BS.length bs == channelIdLen = Just $! ChannelId bs
   | otherwise                    = Nothing
-{-# INLINE channelId #-}
+{-# INLINABLE channelId #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'ChannelId'.
 unChannelId :: ChannelId -> BS.ByteString
@@ -224,7 +224,7 @@ signature :: BS.ByteString -> Maybe Signature
 signature !bs
   | BS.length bs == signatureLen = Just $! Signature bs
   | otherwise                    = Nothing
-{-# INLINE signature #-}
+{-# INLINABLE signature #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'Signature'.
 unSignature :: Signature -> BS.ByteString
@@ -248,7 +248,7 @@ point :: BS.ByteString -> Maybe Point
 point !bs
   | BS.length bs == pointLen = Just $! Point bs
   | otherwise                = Nothing
-{-# INLINE point #-}
+{-# INLINABLE point #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'Point'.
 unPoint :: Point -> BS.ByteString
@@ -270,7 +270,7 @@ paymentHash :: BS.ByteString -> Maybe PaymentHash
 paymentHash !bs
   | BS.length bs == paymentHashLen = Just $! PaymentHash bs
   | otherwise                      = Nothing
-{-# INLINE paymentHash #-}
+{-# INLINABLE paymentHash #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'PaymentHash'.
 unPaymentHash :: PaymentHash -> BS.ByteString
@@ -292,7 +292,7 @@ paymentPreimage :: BS.ByteString -> Maybe PaymentPreimage
 paymentPreimage !bs
   | BS.length bs == paymentPreimageLen = Just $! PaymentPreimage bs
   | otherwise                          = Nothing
-{-# INLINE paymentPreimage #-}
+{-# INLINABLE paymentPreimage #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'PaymentPreimage'.
 unPaymentPreimage :: PaymentPreimage -> BS.ByteString
@@ -314,7 +314,7 @@ secret :: BS.ByteString -> Maybe Secret
 secret !bs
   | BS.length bs == secretLen = Just $! Secret bs
   | otherwise                 = Nothing
-{-# INLINE secret #-}
+{-# INLINABLE secret #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'Secret'.
 unSecret :: Secret -> BS.ByteString
@@ -337,7 +337,7 @@ txId :: BS.ByteString -> Maybe TxId
 txId !bs
   | BS.length bs == txIdLen = Just $! TxId bs
   | otherwise               = Nothing
-{-# INLINE txId #-}
+{-# INLINABLE txId #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'TxId'.
 unTxId :: TxId -> BS.ByteString
@@ -392,7 +392,7 @@ chainHash :: BS.ByteString -> Maybe ChainHash
 chainHash !bs
   | BS.length bs == chainHashLen = Just $! ChainHash bs
   | otherwise                    = Nothing
-{-# INLINE chainHash #-}
+{-# INLINABLE chainHash #-}
 
 -- | Extract the underlying 'BS.ByteString' from a 'ChainHash'.
 unChainHash :: ChainHash -> BS.ByteString
@@ -437,7 +437,7 @@ shortChannelId !blockHeight !txIndex !outputIndex
     !scid = (fromIntegral blockHeight `unsafeShiftL` 40)
         .|. (fromIntegral txIndex `unsafeShiftL` 16)
         .|. fromIntegral outputIndex
-{-# INLINE shortChannelId #-}
+{-# INLINABLE shortChannelId #-}
 
 -- | Extract the block height from a 'ShortChannelId'.
 scidBlockHeight :: ShortChannelId -> Word32
@@ -493,7 +493,7 @@ onionPacket :: BS.ByteString -> Maybe OnionPacket
 onionPacket !bs
   | BS.length bs == onionPacketLen = Just $! OnionPacket bs
   | otherwise                      = Nothing
-{-# INLINE onionPacket #-}
+{-# INLINABLE onionPacket #-}
 
 -- | Extract the underlying 'BS.ByteString' from an 'OnionPacket'.
 unOnionPacket :: OnionPacket -> BS.ByteString
