@@ -15,6 +15,9 @@ module Lightning.Protocol.BOLT2 (
     module Lightning.Protocol.BOLT2.Types
 
   -- * Message types
+  -- | Re-exported from "Lightning.Protocol.BOLT2.Messages".
+  , module Lightning.Protocol.BOLT2.Messages
+
   -- $messagetypes
 
   -- ** Channel establishment (v1)
@@ -33,6 +36,7 @@ module Lightning.Protocol.BOLT2 (
   -- $reestablish
   ) where
 
+import Lightning.Protocol.BOLT2.Messages
 import Lightning.Protocol.BOLT2.Types
 
 -- $messagetypes
