@@ -9,7 +9,7 @@
 -- License: MIT
 -- Maintainer: Jared Tobin <jared@ppad.tech>
 --
--- Encode/decode functions for V1 channel establishment and close messages.
+-- Encode/decode functions for BOLT #2 messages.
 
 module Lightning.Protocol.BOLT2.Codec (
   -- * Error types
@@ -28,6 +28,30 @@ module Lightning.Protocol.BOLT2.Codec (
   , encodeChannelReady
   , decodeChannelReady
 
+  -- * Channel establishment v2 (interactive-tx)
+  , encodeOpenChannel2
+  , decodeOpenChannel2
+  , encodeAcceptChannel2
+  , decodeAcceptChannel2
+  , encodeTxAddInput
+  , decodeTxAddInput
+  , encodeTxAddOutput
+  , decodeTxAddOutput
+  , encodeTxRemoveInput
+  , decodeTxRemoveInput
+  , encodeTxRemoveOutput
+  , decodeTxRemoveOutput
+  , encodeTxComplete
+  , decodeTxComplete
+  , encodeTxSignatures
+  , decodeTxSignatures
+  , encodeTxInitRbf
+  , decodeTxInitRbf
+  , encodeTxAckRbf
+  , decodeTxAckRbf
+  , encodeTxAbort
+  , decodeTxAbort
+
   -- * Channel close
   , encodeStfu
   , decodeStfu
@@ -39,6 +63,26 @@ module Lightning.Protocol.BOLT2.Codec (
   , decodeClosingComplete
   , encodeClosingSig
   , decodeClosingSig
+
+  -- * Normal operation
+  , encodeUpdateAddHtlc
+  , decodeUpdateAddHtlc
+  , encodeUpdateFulfillHtlc
+  , decodeUpdateFulfillHtlc
+  , encodeUpdateFailHtlc
+  , decodeUpdateFailHtlc
+  , encodeUpdateFailMalformedHtlc
+  , decodeUpdateFailMalformedHtlc
+  , encodeCommitmentSigned
+  , decodeCommitmentSigned
+  , encodeRevokeAndAck
+  , decodeRevokeAndAck
+  , encodeUpdateFee
+  , decodeUpdateFee
+
+  -- * Channel reestablishment
+  , encodeChannelReestablish
+  , decodeChannelReestablish
   ) where
 
 import Control.DeepSeq (NFData)
@@ -79,6 +123,9 @@ data DecodeError
   | DecodeInvalidSignature
   | DecodeInvalidPoint
   | DecodeInvalidTxId
+  | DecodeInvalidPaymentHash
+  | DecodeInvalidPaymentPreimage
+  | DecodeInvalidOnionPacket
   | DecodeTlvError !TlvError
   deriving stock (Eq, Show, Generic)
 
@@ -194,6 +241,68 @@ decodeScriptPubKey !bs = do
       !rest2 = BS.drop scriptLen rest1
   Right (scriptPubKey script, rest2)
 {-# INLINE decodeScriptPubKey #-}
+
+-- | Decode a PaymentHash (32 bytes).
+decodePaymentHashBytes
+  :: BS.ByteString -> Either DecodeError (PaymentHash, BS.ByteString)
+decodePaymentHashBytes !bs = do
+  (raw, rest) <- maybe (Left DecodeInsufficientBytes) Right
+                   (decodeBytes paymentHashLen bs)
+  ph <- maybe (Left DecodeInvalidPaymentHash) Right (paymentHash raw)
+  Right (ph, rest)
+{-# INLINE decodePaymentHashBytes #-}
+
+-- | Decode a PaymentPreimage (32 bytes).
+decodePaymentPreimageBytes
+  :: BS.ByteString -> Either DecodeError (PaymentPreimage, BS.ByteString)
+decodePaymentPreimageBytes !bs = do
+  (raw, rest) <- maybe (Left DecodeInsufficientBytes) Right
+                   (decodeBytes paymentPreimageLen bs)
+  pp <- maybe (Left DecodeInvalidPaymentPreimage) Right (paymentPreimage raw)
+  Right (pp, rest)
+{-# INLINE decodePaymentPreimageBytes #-}
+
+-- | Decode an OnionPacket (1366 bytes).
+decodeOnionPacketBytes
+  :: BS.ByteString -> Either DecodeError (OnionPacket, BS.ByteString)
+decodeOnionPacketBytes !bs = do
+  (raw, rest) <- maybe (Left DecodeInsufficientBytes) Right
+                   (decodeBytes onionPacketLen bs)
+  op <- maybe (Left DecodeInvalidOnionPacket) Right (onionPacket raw)
+  Right (op, rest)
+{-# INLINE decodeOnionPacketBytes #-}
+
+-- | Decode bytes using Either.
+decodeBytesE
+  :: Int -> BS.ByteString -> Either DecodeError (BS.ByteString, BS.ByteString)
+decodeBytesE !n !bs = maybe (Left DecodeInsufficientBytes) Right
+                        (decodeBytes n bs)
+{-# INLINE decodeBytesE #-}
+
+-- | Encode a u16-prefixed byte string.
+encodeU16Bytes :: BS.ByteString -> BS.ByteString
+encodeU16Bytes !bs = encodeU16 (fromIntegral (BS.length bs)) <> bs
+{-# INLINE encodeU16Bytes #-}
+
+-- | Decode a u16-prefixed byte string.
+decodeU16Bytes
+  :: BS.ByteString -> Either DecodeError (BS.ByteString, BS.ByteString)
+decodeU16Bytes !bs = do
+  (len, rest1) <- decodeU16E bs
+  let !n = fromIntegral len
+  unless (BS.length rest1 >= n) $ Left DecodeInsufficientBytes
+  Right (BS.take n rest1, BS.drop n rest1)
+{-# INLINE decodeU16Bytes #-}
+
+-- | Decode optional trailing TLV stream.
+decodeOptionalTlvs
+  :: BS.ByteString -> Either DecodeError (TlvStream, BS.ByteString)
+decodeOptionalTlvs !bs
+  | BS.null bs = Right (TlvStream [], BS.empty)
+  | otherwise  = case decodeTlvStreamRaw bs of
+      Left e  -> Left (DecodeTlvError e)
+      Right t -> Right (t, BS.empty)
+{-# INLINE decodeOptionalTlvs #-}
 
 -- Channel establishment v1 ----------------------------------------------------
 
@@ -630,3 +739,582 @@ decodeClosingSig !bs = do
         , closingSigTlvs         = tlvs
         }
   Right (msg, BS.empty)
+
+-- Channel establishment v2 (interactive-tx) -----------------------------------
+
+-- | Encode an OpenChannel2 message (type 64).
+encodeOpenChannel2 :: OpenChannel2 -> BS.ByteString
+encodeOpenChannel2 !msg = mconcat
+  [ unChainHash (openChannel2ChainHash msg)
+  , unChannelId (openChannel2TempChannelId msg)
+  , encodeU32 (openChannel2FundingFeeratePerkw msg)
+  , encodeU32 (openChannel2CommitFeeratePerkw msg)
+  , encodeU64 (unSatoshis (openChannel2FundingSatoshis msg))
+  , encodeU64 (unSatoshis (openChannel2DustLimitSatoshis msg))
+  , encodeU64 (unMilliSatoshis (openChannel2MaxHtlcValueInFlight msg))
+  , encodeU64 (unMilliSatoshis (openChannel2HtlcMinimumMsat msg))
+  , encodeU16 (openChannel2ToSelfDelay msg)
+  , encodeU16 (openChannel2MaxAcceptedHtlcs msg)
+  , encodeU32 (openChannel2Locktime msg)
+  , unPoint (openChannel2FundingPubkey msg)
+  , unPoint (openChannel2RevocationBasepoint msg)
+  , unPoint (openChannel2PaymentBasepoint msg)
+  , unPoint (openChannel2DelayedPaymentBase msg)
+  , unPoint (openChannel2HtlcBasepoint msg)
+  , unPoint (openChannel2FirstPerCommitPoint msg)
+  , unPoint (openChannel2SecondPerCommitPoint msg)
+  , BS.singleton (openChannel2ChannelFlags msg)
+  , encodeTlvStream (openChannel2Tlvs msg)
+  ]
+
+-- | Decode an OpenChannel2 message (type 64).
+decodeOpenChannel2
+  :: BS.ByteString -> Either DecodeError (OpenChannel2, BS.ByteString)
+decodeOpenChannel2 !bs = do
+  (ch, rest1) <- decodeChainHashBytes bs
+  (tempCid, rest2) <- decodeChannelIdBytes rest1
+  (fundingFeerate, rest3) <- decodeU32E rest2
+  (commitFeerate, rest4) <- decodeU32E rest3
+  (fundingSats, rest5) <- decodeSatoshis rest4
+  (dustLimit, rest6) <- decodeSatoshis rest5
+  (maxHtlcVal, rest7) <- decodeMilliSatoshis rest6
+  (htlcMin, rest8) <- decodeMilliSatoshis rest7
+  (toSelfDelay, rest9) <- decodeU16E rest8
+  (maxHtlcs, rest10) <- decodeU16E rest9
+  (locktime, rest11) <- decodeU32E rest10
+  (fundingPk, rest12) <- decodePointBytes rest11
+  (revBase, rest13) <- decodePointBytes rest12
+  (payBase, rest14) <- decodePointBytes rest13
+  (delayBase, rest15) <- decodePointBytes rest14
+  (htlcBase, rest16) <- decodePointBytes rest15
+  (firstPt, rest17) <- decodePointBytes rest16
+  (secondPt, rest18) <- decodePointBytes rest17
+  (flags, rest19) <- maybe (Left DecodeInsufficientBytes) Right (decodeU8 rest18)
+  tlvs <- decodeTlvs rest19
+  let !msg = OpenChannel2
+        { openChannel2ChainHash            = ch
+        , openChannel2TempChannelId        = tempCid
+        , openChannel2FundingFeeratePerkw  = fundingFeerate
+        , openChannel2CommitFeeratePerkw   = commitFeerate
+        , openChannel2FundingSatoshis      = fundingSats
+        , openChannel2DustLimitSatoshis    = dustLimit
+        , openChannel2MaxHtlcValueInFlight = maxHtlcVal
+        , openChannel2HtlcMinimumMsat      = htlcMin
+        , openChannel2ToSelfDelay          = toSelfDelay
+        , openChannel2MaxAcceptedHtlcs     = maxHtlcs
+        , openChannel2Locktime             = locktime
+        , openChannel2FundingPubkey        = fundingPk
+        , openChannel2RevocationBasepoint  = revBase
+        , openChannel2PaymentBasepoint     = payBase
+        , openChannel2DelayedPaymentBase   = delayBase
+        , openChannel2HtlcBasepoint        = htlcBase
+        , openChannel2FirstPerCommitPoint  = firstPt
+        , openChannel2SecondPerCommitPoint = secondPt
+        , openChannel2ChannelFlags         = flags
+        , openChannel2Tlvs                 = tlvs
+        }
+  Right (msg, BS.empty)
+
+-- | Encode an AcceptChannel2 message (type 65).
+encodeAcceptChannel2 :: AcceptChannel2 -> BS.ByteString
+encodeAcceptChannel2 !msg = mconcat
+  [ unChannelId (acceptChannel2TempChannelId msg)
+  , encodeU64 (unSatoshis (acceptChannel2FundingSatoshis msg))
+  , encodeU64 (unSatoshis (acceptChannel2DustLimitSatoshis msg))
+  , encodeU64 (unMilliSatoshis (acceptChannel2MaxHtlcValueInFlight msg))
+  , encodeU64 (unMilliSatoshis (acceptChannel2HtlcMinimumMsat msg))
+  , encodeU32 (acceptChannel2MinimumDepth msg)
+  , encodeU16 (acceptChannel2ToSelfDelay msg)
+  , encodeU16 (acceptChannel2MaxAcceptedHtlcs msg)
+  , unPoint (acceptChannel2FundingPubkey msg)
+  , unPoint (acceptChannel2RevocationBasepoint msg)
+  , unPoint (acceptChannel2PaymentBasepoint msg)
+  , unPoint (acceptChannel2DelayedPaymentBase msg)
+  , unPoint (acceptChannel2HtlcBasepoint msg)
+  , unPoint (acceptChannel2FirstPerCommitPoint msg)
+  , unPoint (acceptChannel2SecondPerCommitPoint msg)
+  , encodeTlvStream (acceptChannel2Tlvs msg)
+  ]
+
+-- | Decode an AcceptChannel2 message (type 65).
+decodeAcceptChannel2
+  :: BS.ByteString -> Either DecodeError (AcceptChannel2, BS.ByteString)
+decodeAcceptChannel2 !bs = do
+  (tempCid, rest1) <- decodeChannelIdBytes bs
+  (fundingSats, rest2) <- decodeSatoshis rest1
+  (dustLimit, rest3) <- decodeSatoshis rest2
+  (maxHtlcVal, rest4) <- decodeMilliSatoshis rest3
+  (htlcMin, rest5) <- decodeMilliSatoshis rest4
+  (minDepth, rest6) <- decodeU32E rest5
+  (toSelfDelay, rest7) <- decodeU16E rest6
+  (maxHtlcs, rest8) <- decodeU16E rest7
+  (fundingPk, rest9) <- decodePointBytes rest8
+  (revBase, rest10) <- decodePointBytes rest9
+  (payBase, rest11) <- decodePointBytes rest10
+  (delayBase, rest12) <- decodePointBytes rest11
+  (htlcBase, rest13) <- decodePointBytes rest12
+  (firstPt, rest14) <- decodePointBytes rest13
+  (secondPt, rest15) <- decodePointBytes rest14
+  tlvs <- decodeTlvs rest15
+  let !msg = AcceptChannel2
+        { acceptChannel2TempChannelId        = tempCid
+        , acceptChannel2FundingSatoshis      = fundingSats
+        , acceptChannel2DustLimitSatoshis    = dustLimit
+        , acceptChannel2MaxHtlcValueInFlight = maxHtlcVal
+        , acceptChannel2HtlcMinimumMsat      = htlcMin
+        , acceptChannel2MinimumDepth         = minDepth
+        , acceptChannel2ToSelfDelay          = toSelfDelay
+        , acceptChannel2MaxAcceptedHtlcs     = maxHtlcs
+        , acceptChannel2FundingPubkey        = fundingPk
+        , acceptChannel2RevocationBasepoint  = revBase
+        , acceptChannel2PaymentBasepoint     = payBase
+        , acceptChannel2DelayedPaymentBase   = delayBase
+        , acceptChannel2HtlcBasepoint        = htlcBase
+        , acceptChannel2FirstPerCommitPoint  = firstPt
+        , acceptChannel2SecondPerCommitPoint = secondPt
+        , acceptChannel2Tlvs                 = tlvs
+        }
+  Right (msg, BS.empty)
+
+-- | Encode a TxAddInput message (type 66).
+encodeTxAddInput :: TxAddInput -> BS.ByteString
+encodeTxAddInput !msg = mconcat
+  [ unChannelId (txAddInputChannelId msg)
+  , encodeU64 (txAddInputSerialId msg)
+  , encodeU16Bytes (txAddInputPrevTx msg)
+  , encodeU32 (txAddInputPrevVout msg)
+  , encodeU32 (txAddInputSequence msg)
+  ]
+
+-- | Decode a TxAddInput message (type 66).
+decodeTxAddInput
+  :: BS.ByteString -> Either DecodeError (TxAddInput, BS.ByteString)
+decodeTxAddInput !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                         (decodeU64 rest1)
+  (prevTx, rest3) <- decodeU16Bytes rest2
+  (prevVout, rest4) <- decodeU32E rest3
+  (seqNum, rest5) <- decodeU32E rest4
+  let !msg = TxAddInput
+        { txAddInputChannelId = cid
+        , txAddInputSerialId  = serialId
+        , txAddInputPrevTx    = prevTx
+        , txAddInputPrevVout  = prevVout
+        , txAddInputSequence  = seqNum
+        }
+  Right (msg, rest5)
+
+-- | Encode a TxAddOutput message (type 67).
+encodeTxAddOutput :: TxAddOutput -> BS.ByteString
+encodeTxAddOutput !msg = mconcat
+  [ unChannelId (txAddOutputChannelId msg)
+  , encodeU64 (txAddOutputSerialId msg)
+  , encodeU64 (unSatoshis (txAddOutputSats msg))
+  , encodeU16Bytes (unScriptPubKey (txAddOutputScript msg))
+  ]
+
+-- | Decode a TxAddOutput message (type 67).
+decodeTxAddOutput
+  :: BS.ByteString -> Either DecodeError (TxAddOutput, BS.ByteString)
+decodeTxAddOutput !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                         (decodeU64 rest1)
+  (sats, rest3) <- decodeSatoshis rest2
+  (scriptBs, rest4) <- decodeU16Bytes rest3
+  let !msg = TxAddOutput
+        { txAddOutputChannelId = cid
+        , txAddOutputSerialId  = serialId
+        , txAddOutputSats      = sats
+        , txAddOutputScript    = scriptPubKey scriptBs
+        }
+  Right (msg, rest4)
+
+-- | Encode a TxRemoveInput message (type 68).
+encodeTxRemoveInput :: TxRemoveInput -> BS.ByteString
+encodeTxRemoveInput !msg = mconcat
+  [ unChannelId (txRemoveInputChannelId msg)
+  , encodeU64 (txRemoveInputSerialId msg)
+  ]
+
+-- | Decode a TxRemoveInput message (type 68).
+decodeTxRemoveInput
+  :: BS.ByteString -> Either DecodeError (TxRemoveInput, BS.ByteString)
+decodeTxRemoveInput !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                         (decodeU64 rest1)
+  let !msg = TxRemoveInput
+        { txRemoveInputChannelId = cid
+        , txRemoveInputSerialId  = serialId
+        }
+  Right (msg, rest2)
+
+-- | Encode a TxRemoveOutput message (type 69).
+encodeTxRemoveOutput :: TxRemoveOutput -> BS.ByteString
+encodeTxRemoveOutput !msg = mconcat
+  [ unChannelId (txRemoveOutputChannelId msg)
+  , encodeU64 (txRemoveOutputSerialId msg)
+  ]
+
+-- | Decode a TxRemoveOutput message (type 69).
+decodeTxRemoveOutput
+  :: BS.ByteString -> Either DecodeError (TxRemoveOutput, BS.ByteString)
+decodeTxRemoveOutput !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                         (decodeU64 rest1)
+  let !msg = TxRemoveOutput
+        { txRemoveOutputChannelId = cid
+        , txRemoveOutputSerialId  = serialId
+        }
+  Right (msg, rest2)
+
+-- | Encode a TxComplete message (type 70).
+encodeTxComplete :: TxComplete -> BS.ByteString
+encodeTxComplete !msg = unChannelId (txCompleteChannelId msg)
+
+-- | Decode a TxComplete message (type 70).
+decodeTxComplete
+  :: BS.ByteString -> Either DecodeError (TxComplete, BS.ByteString)
+decodeTxComplete !bs = do
+  (cid, rest) <- decodeChannelIdBytes bs
+  let !msg = TxComplete { txCompleteChannelId = cid }
+  Right (msg, rest)
+
+-- | Encode a single witness.
+encodeWitness :: Witness -> BS.ByteString
+encodeWitness (Witness !wdata) = encodeU16Bytes wdata
+
+-- | Decode a single witness.
+decodeWitness :: BS.ByteString -> Either DecodeError (Witness, BS.ByteString)
+decodeWitness !bs = do
+  (wdata, rest) <- decodeU16Bytes bs
+  Right (Witness wdata, rest)
+
+-- | Encode a TxSignatures message (type 71).
+encodeTxSignatures :: TxSignatures -> BS.ByteString
+encodeTxSignatures !msg =
+  let !witnesses = txSignaturesWitnesses msg
+      !numWit = fromIntegral (length witnesses) :: Word16
+  in  mconcat $
+        [ unChannelId (txSignaturesChannelId msg)
+        , unTxId (txSignaturesTxid msg)
+        , encodeU16 numWit
+        ] ++ map encodeWitness witnesses
+
+-- | Decode a TxSignatures message (type 71).
+decodeTxSignatures
+  :: BS.ByteString -> Either DecodeError (TxSignatures, BS.ByteString)
+decodeTxSignatures !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (tid, rest2) <- decodeTxIdBytes rest1
+  (numWit, rest3) <- decodeU16E rest2
+  (witnesses, rest4) <- decodeWitnesses (fromIntegral numWit) rest3
+  let !msg = TxSignatures
+        { txSignaturesChannelId = cid
+        , txSignaturesTxid      = tid
+        , txSignaturesWitnesses = witnesses
+        }
+  Right (msg, rest4)
+  where
+    decodeWitnesses :: Int -> BS.ByteString
+                    -> Either DecodeError ([Witness], BS.ByteString)
+    decodeWitnesses 0 !rest = Right ([], rest)
+    decodeWitnesses !n !rest = do
+      (w, rest') <- decodeWitness rest
+      (ws, rest'') <- decodeWitnesses (n - 1) rest'
+      Right (w : ws, rest'')
+
+-- | Encode a TxInitRbf message (type 72).
+encodeTxInitRbf :: TxInitRbf -> BS.ByteString
+encodeTxInitRbf !msg = mconcat
+  [ unChannelId (txInitRbfChannelId msg)
+  , encodeU32 (txInitRbfLocktime msg)
+  , encodeU32 (txInitRbfFeerate msg)
+  , encodeTlvStream (txInitRbfTlvs msg)
+  ]
+
+-- | Decode a TxInitRbf message (type 72).
+decodeTxInitRbf
+  :: BS.ByteString -> Either DecodeError (TxInitRbf, BS.ByteString)
+decodeTxInitRbf !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (locktime, rest2) <- decodeU32E rest1
+  (feerate, rest3) <- decodeU32E rest2
+  tlvs <- decodeTlvs rest3
+  let !msg = TxInitRbf
+        { txInitRbfChannelId = cid
+        , txInitRbfLocktime  = locktime
+        , txInitRbfFeerate   = feerate
+        , txInitRbfTlvs      = tlvs
+        }
+  Right (msg, BS.empty)
+
+-- | Encode a TxAckRbf message (type 73).
+encodeTxAckRbf :: TxAckRbf -> BS.ByteString
+encodeTxAckRbf !msg = mconcat
+  [ unChannelId (txAckRbfChannelId msg)
+  , encodeTlvStream (txAckRbfTlvs msg)
+  ]
+
+-- | Decode a TxAckRbf message (type 73).
+decodeTxAckRbf
+  :: BS.ByteString -> Either DecodeError (TxAckRbf, BS.ByteString)
+decodeTxAckRbf !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  tlvs <- decodeTlvs rest1
+  let !msg = TxAckRbf
+        { txAckRbfChannelId = cid
+        , txAckRbfTlvs      = tlvs
+        }
+  Right (msg, BS.empty)
+
+-- | Encode a TxAbort message (type 74).
+encodeTxAbort :: TxAbort -> BS.ByteString
+encodeTxAbort !msg = mconcat
+  [ unChannelId (txAbortChannelId msg)
+  , encodeU16Bytes (txAbortData msg)
+  ]
+
+-- | Decode a TxAbort message (type 74).
+decodeTxAbort
+  :: BS.ByteString -> Either DecodeError (TxAbort, BS.ByteString)
+decodeTxAbort !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (dat, rest2) <- decodeU16Bytes rest1
+  let !msg = TxAbort
+        { txAbortChannelId = cid
+        , txAbortData      = dat
+        }
+  Right (msg, rest2)
+
+-- Normal operation ------------------------------------------------------------
+
+-- | Encode an UpdateAddHtlc message (type 128).
+encodeUpdateAddHtlc :: UpdateAddHtlc -> BS.ByteString
+encodeUpdateAddHtlc !m = mconcat
+  [ unChannelId (updateAddHtlcChannelId m)
+  , encodeU64 (updateAddHtlcId m)
+  , encodeU64 (unMilliSatoshis (updateAddHtlcAmountMsat m))
+  , unPaymentHash (updateAddHtlcPaymentHash m)
+  , encodeU32 (updateAddHtlcCltvExpiry m)
+  , unOnionPacket (updateAddHtlcOnionPacket m)
+  , encodeTlvStream (updateAddHtlcTlvs m)
+  ]
+
+-- | Decode an UpdateAddHtlc message (type 128).
+decodeUpdateAddHtlc
+  :: BS.ByteString -> Either DecodeError (UpdateAddHtlc, BS.ByteString)
+decodeUpdateAddHtlc !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                       (decodeU64 rest1)
+  (amtMsat, rest3) <- maybe (Left DecodeInsufficientBytes) Right
+                        (decodeU64 rest2)
+  (pHash, rest4) <- decodePaymentHashBytes rest3
+  (cltvExp, rest5) <- decodeU32E rest4
+  (onion, rest6) <- decodeOnionPacketBytes rest5
+  (tlvs, rest7) <- decodeOptionalTlvs rest6
+  let !msg = UpdateAddHtlc
+        { updateAddHtlcChannelId   = cid
+        , updateAddHtlcId          = htlcId
+        , updateAddHtlcAmountMsat  = MilliSatoshis amtMsat
+        , updateAddHtlcPaymentHash = pHash
+        , updateAddHtlcCltvExpiry  = cltvExp
+        , updateAddHtlcOnionPacket = onion
+        , updateAddHtlcTlvs        = tlvs
+        }
+  Right (msg, rest7)
+
+-- | Encode an UpdateFulfillHtlc message (type 130).
+encodeUpdateFulfillHtlc :: UpdateFulfillHtlc -> BS.ByteString
+encodeUpdateFulfillHtlc !m = mconcat
+  [ unChannelId (updateFulfillHtlcChannelId m)
+  , encodeU64 (updateFulfillHtlcId m)
+  , unPaymentPreimage (updateFulfillHtlcPaymentPreimage m)
+  , encodeTlvStream (updateFulfillHtlcTlvs m)
+  ]
+
+-- | Decode an UpdateFulfillHtlc message (type 130).
+decodeUpdateFulfillHtlc
+  :: BS.ByteString -> Either DecodeError (UpdateFulfillHtlc, BS.ByteString)
+decodeUpdateFulfillHtlc !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                       (decodeU64 rest1)
+  (preimage, rest3) <- decodePaymentPreimageBytes rest2
+  (tlvs, rest4) <- decodeOptionalTlvs rest3
+  let !msg = UpdateFulfillHtlc
+        { updateFulfillHtlcChannelId       = cid
+        , updateFulfillHtlcId              = htlcId
+        , updateFulfillHtlcPaymentPreimage = preimage
+        , updateFulfillHtlcTlvs            = tlvs
+        }
+  Right (msg, rest4)
+
+-- | Encode an UpdateFailHtlc message (type 131).
+encodeUpdateFailHtlc :: UpdateFailHtlc -> BS.ByteString
+encodeUpdateFailHtlc !m = mconcat
+  [ unChannelId (updateFailHtlcChannelId m)
+  , encodeU64 (updateFailHtlcId m)
+  , encodeU16Bytes (updateFailHtlcReason m)
+  , encodeTlvStream (updateFailHtlcTlvs m)
+  ]
+
+-- | Decode an UpdateFailHtlc message (type 131).
+decodeUpdateFailHtlc
+  :: BS.ByteString -> Either DecodeError (UpdateFailHtlc, BS.ByteString)
+decodeUpdateFailHtlc !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                       (decodeU64 rest1)
+  (reason, rest3) <- decodeU16Bytes rest2
+  (tlvs, rest4) <- decodeOptionalTlvs rest3
+  let !msg = UpdateFailHtlc
+        { updateFailHtlcChannelId = cid
+        , updateFailHtlcId        = htlcId
+        , updateFailHtlcReason    = reason
+        , updateFailHtlcTlvs      = tlvs
+        }
+  Right (msg, rest4)
+
+-- | Encode an UpdateFailMalformedHtlc message (type 135).
+encodeUpdateFailMalformedHtlc :: UpdateFailMalformedHtlc -> BS.ByteString
+encodeUpdateFailMalformedHtlc !m = mconcat
+  [ unChannelId (updateFailMalformedHtlcChannelId m)
+  , encodeU64 (updateFailMalformedHtlcId m)
+  , unPaymentHash (updateFailMalformedHtlcSha256Onion m)
+  , encodeU16 (updateFailMalformedHtlcFailureCode m)
+  ]
+
+-- | Decode an UpdateFailMalformedHtlc message (type 135).
+decodeUpdateFailMalformedHtlc
+  :: BS.ByteString -> Either DecodeError (UpdateFailMalformedHtlc, BS.ByteString)
+decodeUpdateFailMalformedHtlc !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                       (decodeU64 rest1)
+  (sha256Onion, rest3) <- decodePaymentHashBytes rest2
+  (failCode, rest4) <- decodeU16E rest3
+  let !msg = UpdateFailMalformedHtlc
+        { updateFailMalformedHtlcChannelId   = cid
+        , updateFailMalformedHtlcId          = htlcId
+        , updateFailMalformedHtlcSha256Onion = sha256Onion
+        , updateFailMalformedHtlcFailureCode = failCode
+        }
+  Right (msg, rest4)
+
+-- | Encode a CommitmentSigned message (type 132).
+encodeCommitmentSigned :: CommitmentSigned -> BS.ByteString
+encodeCommitmentSigned !m = mconcat $
+  [ unChannelId (commitmentSignedChannelId m)
+  , unSignature (commitmentSignedSignature m)
+  , encodeU16 numHtlcs
+  ] ++ map unSignature sigs
+  where
+    !sigs = commitmentSignedHtlcSignatures m
+    !numHtlcs = fromIntegral (length sigs) :: Word16
+
+-- | Decode a CommitmentSigned message (type 132).
+decodeCommitmentSigned
+  :: BS.ByteString -> Either DecodeError (CommitmentSigned, BS.ByteString)
+decodeCommitmentSigned !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (sig, rest2) <- decodeSignatureBytes rest1
+  (numHtlcs, rest3) <- decodeU16E rest2
+  (htlcSigs, rest4) <- decodeSignatures (fromIntegral numHtlcs) rest3
+  let !msg = CommitmentSigned
+        { commitmentSignedChannelId      = cid
+        , commitmentSignedSignature      = sig
+        , commitmentSignedHtlcSignatures = htlcSigs
+        }
+  Right (msg, rest4)
+  where
+    decodeSignatures :: Int -> BS.ByteString
+                     -> Either DecodeError ([Signature], BS.ByteString)
+    decodeSignatures !n !input = go n input []
+      where
+        go :: Int -> BS.ByteString -> [Signature]
+           -> Either DecodeError ([Signature], BS.ByteString)
+        go 0 !remaining !acc = Right (reverse acc, remaining)
+        go !count !remaining !acc = do
+          (s, rest) <- decodeSignatureBytes remaining
+          go (count - 1) rest (s : acc)
+
+-- | Encode a RevokeAndAck message (type 133).
+encodeRevokeAndAck :: RevokeAndAck -> BS.ByteString
+encodeRevokeAndAck !m = mconcat
+  [ unChannelId (revokeAndAckChannelId m)
+  , revokeAndAckPerCommitmentSecret m
+  , unPoint (revokeAndAckNextPerCommitPoint m)
+  ]
+
+-- | Decode a RevokeAndAck message (type 133).
+decodeRevokeAndAck
+  :: BS.ByteString -> Either DecodeError (RevokeAndAck, BS.ByteString)
+decodeRevokeAndAck !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (secret, rest2) <- decodeBytesE 32 rest1
+  (nextPoint, rest3) <- decodePointBytes rest2
+  let !msg = RevokeAndAck
+        { revokeAndAckChannelId           = cid
+        , revokeAndAckPerCommitmentSecret = secret
+        , revokeAndAckNextPerCommitPoint  = nextPoint
+        }
+  Right (msg, rest3)
+
+-- | Encode an UpdateFee message (type 134).
+encodeUpdateFee :: UpdateFee -> BS.ByteString
+encodeUpdateFee !m = mconcat
+  [ unChannelId (updateFeeChannelId m)
+  , encodeU32 (updateFeeFeeratePerKw m)
+  ]
+
+-- | Decode an UpdateFee message (type 134).
+decodeUpdateFee
+  :: BS.ByteString -> Either DecodeError (UpdateFee, BS.ByteString)
+decodeUpdateFee !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (feerate, rest2) <- decodeU32E rest1
+  let !msg = UpdateFee
+        { updateFeeChannelId    = cid
+        , updateFeeFeeratePerKw = feerate
+        }
+  Right (msg, rest2)
+
+-- Channel reestablishment -----------------------------------------------------
+
+-- | Encode a ChannelReestablish message (type 136).
+encodeChannelReestablish :: ChannelReestablish -> BS.ByteString
+encodeChannelReestablish !m = mconcat
+  [ unChannelId (channelReestablishChannelId m)
+  , encodeU64 (channelReestablishNextCommitNum m)
+  , encodeU64 (channelReestablishNextRevocationNum m)
+  , channelReestablishYourLastCommitSecret m
+  , unPoint (channelReestablishMyCurrentCommitPoint m)
+  , encodeTlvStream (channelReestablishTlvs m)
+  ]
+
+-- | Decode a ChannelReestablish message (type 136).
+decodeChannelReestablish
+  :: BS.ByteString -> Either DecodeError (ChannelReestablish, BS.ByteString)
+decodeChannelReestablish !bs = do
+  (cid, rest1) <- decodeChannelIdBytes bs
+  (nextCommit, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                           (decodeU64 rest1)
+  (nextRevoke, rest3) <- maybe (Left DecodeInsufficientBytes) Right
+                           (decodeU64 rest2)
+  (lastSecret, rest4) <- decodeBytesE 32 rest3
+  (myPoint, rest5) <- decodePointBytes rest4
+  (tlvs, rest6) <- decodeOptionalTlvs rest5
+  let !msg = ChannelReestablish
+        { channelReestablishChannelId            = cid
+        , channelReestablishNextCommitNum        = nextCommit
+        , channelReestablishNextRevocationNum    = nextRevoke
+        , channelReestablishYourLastCommitSecret = lastSecret
+        , channelReestablishMyCurrentCommitPoint = myPoint
+        , channelReestablishTlvs                 = tlvs
+        }
+  Right (msg, rest6)

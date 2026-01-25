@@ -3,9 +3,8 @@
 
   inputs = {
     ppad-bolt1 = {
-      type = "git";
-      url  = "git://git.ppad.tech/bolt1.git";
-      ref  = "master";
+      type = "path";
+      path = "/Users/jtobin/src/ppad/bolt1";
       inputs.ppad-nixpkgs.follows = "ppad-nixpkgs";
     };
     ppad-nixpkgs = {
