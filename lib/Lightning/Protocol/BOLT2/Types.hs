@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_HADDOCK prune #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -324,10 +323,6 @@ unSecret (Secret bs) = bs
 {-# INLINE unSecret #-}
 
 -- transaction types -----------------------------------------------------------
-
--- orphan NFData instances for ppad-tx types
-instance NFData TxId
-instance NFData OutPoint
 
 -- | Extract the underlying 'BS.ByteString' from a 'TxId'.
 unTxId :: TxId -> BS.ByteString
