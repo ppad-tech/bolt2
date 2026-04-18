@@ -47,7 +47,6 @@ module Lightning.Protocol.BOLT2.Types (
   -- * Transaction types
   , TxId(..)
   , mkTxId
-  , unTxId
   , OutPoint(..)
   , ScriptPubKey
   , scriptPubKey
@@ -75,7 +74,6 @@ module Lightning.Protocol.BOLT2.Types (
   , channelIdLen
   , signatureLen
   , pointLen
-  , txIdLen
   , chainHashLen
   , shortChannelIdLen
   , paymentHashLen
@@ -107,11 +105,6 @@ signatureLen = 64
 pointLen :: Int
 pointLen = 33
 {-# INLINE pointLen #-}
-
--- | Length of a transaction ID in bytes (32).
-txIdLen :: Int
-txIdLen = 32
-{-# INLINE txIdLen #-}
 
 -- | Length of a chain hash in bytes (32).
 chainHashLen :: Int
@@ -323,11 +316,6 @@ unSecret (Secret bs) = bs
 {-# INLINE unSecret #-}
 
 -- transaction types -----------------------------------------------------------
-
--- | Extract the underlying 'BS.ByteString' from a 'TxId'.
-unTxId :: TxId -> BS.ByteString
-unTxId (TxId bs) = bs
-{-# INLINE unTxId #-}
 
 -- | A script pubkey (output script).
 --

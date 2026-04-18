@@ -194,7 +194,7 @@ decodeTxIdBytes
   :: BS.ByteString -> Either DecodeError (TxId, BS.ByteString)
 decodeTxIdBytes !bs = do
   (raw, rest) <- maybe (Left DecodeInsufficientBytes) Right
-                   (decodeBytes txIdLen bs)
+                   (decodeBytes 32 bs)
   tid <- maybe (Left DecodeInvalidTxId) Right (mkTxId raw)
   Right (tid, rest)
 {-# INLINE decodeTxIdBytes #-}
@@ -497,7 +497,7 @@ decodeAcceptChannel !bs = do
 encodeFundingCreated :: FundingCreated -> BS.ByteString
 encodeFundingCreated !msg = mconcat
   [ unChannelId (fundingCreatedTempChannelId msg)
-  , unTxId (fundingCreatedFundingTxid msg)
+  , let (TxId bs) = fundingCreatedFundingTxid msg in bs
   , encodeU16 (fundingCreatedFundingOutIdx msg)
   , unSignature (fundingCreatedSignature msg)
   ]
@@ -1019,7 +1019,7 @@ encodeTxSignatures !msg = do
   encodedWits <- traverse encodeWitnessE witnesses
   Right $! mconcat $
     [ unChannelId (txSignaturesChannelId msg)
-    , unTxId (txSignaturesTxid msg)
+    , let (TxId bs) = txSignaturesTxid msg in bs
     , encodeU16 numWit
     ] ++ encodedWits
 
