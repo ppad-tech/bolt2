@@ -86,14 +86,18 @@
         ]
       },
       "locked": {
-        "lastModified": 1769324859,
-        "narHash": "sha256-qQsiRQMGUZ8TZimz9yFFED3SEt8BAjYhHp6r2qvEuQA=",
-        "path": "/Users/jtobin/src/ppad/bolt1",
-        "type": "path"
+        "lastModified": 1776481687,
+        "narHash": "sha256-1oT11gu84v1wEmOrigp6FTP1DIG7JkD1OVdgOCCPQFs=",
+        "ref": "master",
+        "rev": "0a19559d878ad6701d9d10fd08a32b736bcee662",
+        "revCount": 26,
+        "type": "git",
+        "url": "git://git.ppad.tech/bolt1.git"
       },
       "original": {
-        "path": "/Users/jtobin/src/ppad/bolt1",
-        "type": "path"
+        "ref": "master",
+        "type": "git",
+        "url": "git://git.ppad.tech/bolt1.git"
       }
     },
     "ppad-nixpkgs": {
