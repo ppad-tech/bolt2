@@ -13,7 +13,7 @@ module Main where
 
 import Criterion.Main
 import qualified Data.ByteString as BS
-import Lightning.Protocol.BOLT1 (TlvStream(..))
+import Lightning.Protocol.BOLT1 (TlvStream, unsafeTlvStream)
 import Lightning.Protocol.BOLT2
 
 -- Test data construction ------------------------------------------------------
@@ -74,7 +74,7 @@ testOnionPacket = case onionPacket (BS.replicate 1366 0x00) of
 
 -- | Empty TLV stream.
 emptyTlvs :: TlvStream
-emptyTlvs = TlvStream []
+emptyTlvs = unsafeTlvStream []
 {-# NOINLINE emptyTlvs #-}
 
 -- V1 messages -----------------------------------------------------------------

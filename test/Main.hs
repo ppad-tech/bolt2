@@ -6,7 +6,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as B16
 import Data.Maybe (fromJust)
 import Data.Word (Word8, Word16, Word32, Word64)
-import Lightning.Protocol.BOLT1 (TlvStream(..))
+import Lightning.Protocol.BOLT1 (TlvStream, unsafeTlvStream)
 import Lightning.Protocol.BOLT2
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -67,7 +67,7 @@ testSecret = fromJust $ secret (BS.replicate 32 0x11)
 
 -- | Empty TLV stream for messages.
 emptyTlvs :: TlvStream
-emptyTlvs = TlvStream []
+emptyTlvs = unsafeTlvStream []
 
 -- V1 Channel Establishment Tests ----------------------------------------------
 

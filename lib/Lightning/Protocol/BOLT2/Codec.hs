@@ -91,7 +91,8 @@ import qualified Data.ByteString as BS
 import Data.Word (Word8, Word16, Word32)
 import GHC.Generics (Generic)
 import Lightning.Protocol.BOLT1
-  ( TlvStream(..)
+  ( TlvStream
+  , unsafeTlvStream
   , TlvError
   , encodeU16
   , encodeU32
@@ -227,7 +228,7 @@ decodeMilliSatoshis !bs = do
 -- | Decode optional TLV stream from remaining bytes.
 decodeTlvs :: BS.ByteString -> Either DecodeError TlvStream
 decodeTlvs !bs
-  | BS.null bs = Right (TlvStream [])
+  | BS.null bs = Right (unsafeTlvStream [])
   | otherwise  = either (Left . DecodeTlvError) Right (decodeTlvStreamRaw bs)
 {-# INLINE decodeTlvs #-}
 
@@ -311,7 +312,7 @@ decodeU16Bytes !bs = do
 decodeOptionalTlvs
   :: BS.ByteString -> Either DecodeError (TlvStream, BS.ByteString)
 decodeOptionalTlvs !bs
-  | BS.null bs = Right (TlvStream [], BS.empty)
+  | BS.null bs = Right (unsafeTlvStream [], BS.empty)
   | otherwise  = case decodeTlvStreamRaw bs of
       Left e  -> Left (DecodeTlvError e)
       Right t -> Right (t, BS.empty)
