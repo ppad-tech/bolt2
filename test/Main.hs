@@ -47,7 +47,7 @@ testSignature = fromJust $ signature (BS.replicate 64 0xcc)
 
 -- | Create a valid TxId (32 bytes).
 testTxId :: TxId
-testTxId = fromJust $ txId (BS.replicate 32 0xdd)
+testTxId = fromJust $ mkTxId (BS.replicate 32 0xdd)
 
 -- | Create a valid PaymentHash (32 bytes).
 testPaymentHash :: PaymentHash

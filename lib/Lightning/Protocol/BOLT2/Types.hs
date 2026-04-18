@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_HADDOCK prune #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -45,10 +46,10 @@ module Lightning.Protocol.BOLT2.Types (
   , unSecret
 
   -- * Transaction types
-  , TxId
-  , txId
+  , TxId(..)
+  , mkTxId
   , unTxId
-  , Outpoint(..)
+  , OutPoint(..)
   , ScriptPubKey
   , scriptPubKey
   , unScriptPubKey
@@ -84,6 +85,7 @@ module Lightning.Protocol.BOLT2.Types (
   , secretLen
   ) where
 
+import Bitcoin.Prim.Tx (TxId(..), mkTxId, OutPoint(..))
 import Control.DeepSeq (NFData)
 import Data.Bits (unsafeShiftL, unsafeShiftR, (.&.), (.|.))
 import qualified Data.ByteString as BS
@@ -323,37 +325,14 @@ unSecret (Secret bs) = bs
 
 -- transaction types -----------------------------------------------------------
 
--- | A 32-byte transaction identifier.
---
--- The double-SHA256 hash of a serialized transaction.
-newtype TxId = TxId BS.ByteString
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving newtype NFData
-
--- | Construct a 'TxId' from a 32-byte 'BS.ByteString'.
---
--- Returns 'Nothing' if the input is not exactly 32 bytes.
-txId :: BS.ByteString -> Maybe TxId
-txId !bs
-  | BS.length bs == txIdLen = Just $! TxId bs
-  | otherwise               = Nothing
-{-# INLINABLE txId #-}
+-- orphan NFData instances for ppad-tx types
+instance NFData TxId
+instance NFData OutPoint
 
 -- | Extract the underlying 'BS.ByteString' from a 'TxId'.
 unTxId :: TxId -> BS.ByteString
 unTxId (TxId bs) = bs
 {-# INLINE unTxId #-}
-
--- | A transaction outpoint (txid + output index).
---
--- Identifies a specific output of a transaction.
-data Outpoint = Outpoint
-  { outpointTxId :: {-# UNPACK #-} !TxId
-  , outpointVout :: {-# UNPACK #-} !Word32
-  }
-  deriving stock (Eq, Ord, Show, Generic)
-
-instance NFData Outpoint
 
 -- | A script pubkey (output script).
 --

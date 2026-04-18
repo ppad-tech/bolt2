@@ -195,7 +195,7 @@ decodeTxIdBytes
 decodeTxIdBytes !bs = do
   (raw, rest) <- maybe (Left DecodeInsufficientBytes) Right
                    (decodeBytes txIdLen bs)
-  tid <- maybe (Left DecodeInvalidTxId) Right (txId raw)
+  tid <- maybe (Left DecodeInvalidTxId) Right (mkTxId raw)
   Right (tid, rest)
 {-# INLINE decodeTxIdBytes #-}
 

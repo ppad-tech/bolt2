@@ -32,7 +32,8 @@ Do not use stack. All dependency and build management via nix.
 ### ppad libraries (use freely)
 
 Use ppad libraries (github.com/ppad-tech, git.ppad.tech) liberally.
-Current dependencies: ppad-bolt1 (for primitive encoding/decoding, TLV).
+Current dependencies: ppad-bolt1 (for primitive encoding/decoding, TLV),
+ppad-tx (for TxId and OutPoint types).
 
 ### External libraries
 

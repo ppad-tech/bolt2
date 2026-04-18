@@ -59,7 +59,7 @@ testChainHash = case chainHash zeroBytes32 of
 
 -- | 32-byte txid.
 testTxId :: TxId
-testTxId = case txId zeroBytes32 of
+testTxId = case mkTxId zeroBytes32 of
   Just t  -> t
   Nothing -> error "testTxId: invalid"
 {-# NOINLINE testTxId #-}
