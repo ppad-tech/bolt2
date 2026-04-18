@@ -1,6 +1,8 @@
 # ppad-bolt2
 
+[![](https://img.shields.io/hackage/v/ppad-bolt2?color=blue)](https://hackage.haskell.org/package/ppad-bolt2)
 ![](https://img.shields.io/badge/license-MIT-brightgreen)
+[![](https://img.shields.io/badge/haddock-bolt2-lightblue)](https://docs.ppad.tech/bolt2)
 
 Haskell implementation of BOLT #2 (Lightning Network peer protocol),
 including message types and codecs for channel establishment, normal
@@ -74,10 +76,8 @@ Haddocks are hosted at [docs.ppad.tech/bolt2][hadoc].
 
 ## Security
 
-This library aims at the maximum security achievable in a
-garbage-collected language under an optimizing compiler such as GHC.
-If you discover any vulnerabilities, please disclose them via
-security@ppad.tech.
+This is a pre-release version of the library and makes no guarantees about
+security whatsoever.
 
 ## Development
 
