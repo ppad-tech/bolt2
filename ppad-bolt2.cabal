@@ -33,6 +33,7 @@ library
     , bytestring >= 0.9 && < 0.13
     , deepseq >= 1.4 && < 1.6
     , ppad-bolt1 >= 0.0.1 && < 0.1
+    , ppad-tx >= 0.1 && < 0.2
 
 test-suite bolt2-tests
   type:                exitcode-stdio-1.0

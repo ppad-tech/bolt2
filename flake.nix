@@ -13,11 +13,17 @@
       url  = "git://git.ppad.tech/nixpkgs.git";
       ref  = "master";
     };
+    ppad-tx = {
+      type = "git";
+      url  = "git://git.ppad.tech/tx.git";
+      ref  = "master";
+      inputs.ppad-nixpkgs.follows = "ppad-nixpkgs";
+    };
     flake-utils.follows = "ppad-nixpkgs/flake-utils";
     nixpkgs.follows = "ppad-nixpkgs/nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils, ppad-nixpkgs, ppad-bolt1 }:
+  outputs = { self, nixpkgs, flake-utils, ppad-nixpkgs, ppad-bolt1, ppad-tx }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         lib = "ppad-bolt2";
@@ -33,10 +39,14 @@
             (hlib.enableCabalFlag bolt1 "llvm")
             [ llvm clang ];
 
+        tx = ppad-tx.packages.${system}.default;
+
         hpkgs = pkgs.haskell.packages.ghc910.extend (new: old: {
           ppad-bolt1 = bolt1-llvm;
+          ppad-tx = tx;
           ${lib} = new.callCabal2nix lib ./. {
             ppad-bolt1 = new.ppad-bolt1;
+            ppad-tx = new.ppad-tx;
           };
         });
 
