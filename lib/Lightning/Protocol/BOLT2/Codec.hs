@@ -209,21 +209,21 @@ decodeU32E :: BS.ByteString -> Either DecodeError (Word32, BS.ByteString)
 decodeU32E !bs = maybe (Left DecodeInsufficientBytes) Right (decodeU32 bs)
 {-# INLINE decodeU32E #-}
 
--- | Decode a u64 as Satoshis.
-decodeSatoshis
-  :: BS.ByteString -> Either DecodeError (Satoshis, BS.ByteString)
-decodeSatoshis !bs = do
+-- | Decode a u64 as Satoshi.
+decodeSatoshi
+  :: BS.ByteString -> Either DecodeError (Satoshi, BS.ByteString)
+decodeSatoshi !bs = do
   (val, rest) <- maybe (Left DecodeInsufficientBytes) Right (decodeU64 bs)
-  Right (Satoshis val, rest)
-{-# INLINE decodeSatoshis #-}
+  Right (Satoshi val, rest)
+{-# INLINE decodeSatoshi #-}
 
--- | Decode a u64 as MilliSatoshis.
-decodeMilliSatoshis
-  :: BS.ByteString -> Either DecodeError (MilliSatoshis, BS.ByteString)
-decodeMilliSatoshis !bs = do
+-- | Decode a u64 as MilliSatoshi.
+decodeMilliSatoshi
+  :: BS.ByteString -> Either DecodeError (MilliSatoshi, BS.ByteString)
+decodeMilliSatoshi !bs = do
   (val, rest) <- maybe (Left DecodeInsufficientBytes) Right (decodeU64 bs)
-  Right (MilliSatoshis val, rest)
-{-# INLINE decodeMilliSatoshis #-}
+  Right (MilliSatoshi val, rest)
+{-# INLINE decodeMilliSatoshi #-}
 
 -- | Decode optional TLV stream from remaining bytes.
 decodeTlvs :: BS.ByteString -> Either DecodeError TlvStream
@@ -274,15 +274,17 @@ decodeOnionPacketBytes !bs = do
   Right (op, rest)
 {-# INLINE decodeOnionPacketBytes #-}
 
--- | Decode a Secret (32 bytes).
-decodeSecretBytes
-  :: BS.ByteString -> Either DecodeError (Secret, BS.ByteString)
-decodeSecretBytes !bs = do
+-- | Decode a PerCommitmentSecret (32 bytes).
+decodePerCommitmentSecretBytes
+  :: BS.ByteString
+  -> Either DecodeError (PerCommitmentSecret, BS.ByteString)
+decodePerCommitmentSecretBytes !bs = do
   (raw, rest) <- maybe (Left DecodeInsufficientBytes) Right
-                   (decodeBytes secretLen bs)
-  sec <- maybe (Left DecodeInvalidSecret) Right (secret raw)
+                   (decodeBytes perCommitmentSecretLen bs)
+  sec <- maybe (Left DecodeInvalidSecret) Right
+           (perCommitmentSecret raw)
   Right (sec, rest)
-{-# INLINE decodeSecretBytes #-}
+{-# INLINE decodePerCommitmentSecretBytes #-}
 
 -- | Encode a u16-prefixed byte string with bounds checking.
 encodeU16BytesE :: BS.ByteString -> Either EncodeError BS.ByteString
@@ -346,12 +348,12 @@ encodeOpenChannel :: OpenChannel -> BS.ByteString
 encodeOpenChannel !msg = mconcat
   [ unChainHash (openChannelChainHash msg)
   , unChannelId (openChannelTempChannelId msg)
-  , encodeU64 (unSatoshis (openChannelFundingSatoshis msg))
-  , encodeU64 (unMilliSatoshis (openChannelPushMsat msg))
-  , encodeU64 (unSatoshis (openChannelDustLimitSatoshis msg))
-  , encodeU64 (unMilliSatoshis (openChannelMaxHtlcValueInFlight msg))
-  , encodeU64 (unSatoshis (openChannelChannelReserveSat msg))
-  , encodeU64 (unMilliSatoshis (openChannelHtlcMinimumMsat msg))
+  , encodeU64 (unSatoshi (openChannelFundingSatoshi msg))
+  , encodeU64 (unMilliSatoshi (openChannelPushMsat msg))
+  , encodeU64 (unSatoshi (openChannelDustLimitSatoshi msg))
+  , encodeU64 (unMilliSatoshi (openChannelMaxHtlcValueInFlight msg))
+  , encodeU64 (unSatoshi (openChannelChannelReserveSat msg))
+  , encodeU64 (unMilliSatoshi (openChannelHtlcMinimumMsat msg))
   , encodeU32 (openChannelFeeratePerKw msg)
   , encodeU16 (openChannelToSelfDelay msg)
   , encodeU16 (openChannelMaxAcceptedHtlcs msg)
@@ -371,12 +373,12 @@ decodeOpenChannel
 decodeOpenChannel !bs = do
   (chainHash', rest1) <- decodeChainHashBytes bs
   (tempChanId, rest2) <- decodeChannelIdBytes rest1
-  (fundingSats, rest3) <- decodeSatoshis rest2
-  (pushMsat, rest4) <- decodeMilliSatoshis rest3
-  (dustLimit, rest5) <- decodeSatoshis rest4
-  (maxHtlcVal, rest6) <- decodeMilliSatoshis rest5
-  (chanReserve, rest7) <- decodeSatoshis rest6
-  (htlcMin, rest8) <- decodeMilliSatoshis rest7
+  (fundingSats, rest3) <- decodeSatoshi rest2
+  (pushMsat, rest4) <- decodeMilliSatoshi rest3
+  (dustLimit, rest5) <- decodeSatoshi rest4
+  (maxHtlcVal, rest6) <- decodeMilliSatoshi rest5
+  (chanReserve, rest7) <- decodeSatoshi rest6
+  (htlcMin, rest8) <- decodeMilliSatoshi rest7
   (feerate, rest9) <- decodeU32E rest8
   (toSelfDelay, rest10) <- decodeU16E rest9
   (maxHtlcs, rest11) <- decodeU16E rest10
@@ -392,9 +394,9 @@ decodeOpenChannel !bs = do
   let !msg = OpenChannel
         { openChannelChainHash            = chainHash'
         , openChannelTempChannelId        = tempChanId
-        , openChannelFundingSatoshis      = fundingSats
+        , openChannelFundingSatoshi      = fundingSats
         , openChannelPushMsat             = pushMsat
-        , openChannelDustLimitSatoshis    = dustLimit
+        , openChannelDustLimitSatoshi    = dustLimit
         , openChannelMaxHtlcValueInFlight = maxHtlcVal
         , openChannelChannelReserveSat    = chanReserve
         , openChannelHtlcMinimumMsat      = htlcMin
@@ -433,10 +435,10 @@ decodeOpenChannel !bs = do
 encodeAcceptChannel :: AcceptChannel -> BS.ByteString
 encodeAcceptChannel !msg = mconcat
   [ unChannelId (acceptChannelTempChannelId msg)
-  , encodeU64 (unSatoshis (acceptChannelDustLimitSatoshis msg))
-  , encodeU64 (unMilliSatoshis (acceptChannelMaxHtlcValueInFlight msg))
-  , encodeU64 (unSatoshis (acceptChannelChannelReserveSat msg))
-  , encodeU64 (unMilliSatoshis (acceptChannelHtlcMinimumMsat msg))
+  , encodeU64 (unSatoshi (acceptChannelDustLimitSatoshi msg))
+  , encodeU64 (unMilliSatoshi (acceptChannelMaxHtlcValueInFlight msg))
+  , encodeU64 (unSatoshi (acceptChannelChannelReserveSat msg))
+  , encodeU64 (unMilliSatoshi (acceptChannelHtlcMinimumMsat msg))
   , encodeU32 (acceptChannelMinimumDepth msg)
   , encodeU16 (acceptChannelToSelfDelay msg)
   , encodeU16 (acceptChannelMaxAcceptedHtlcs msg)
@@ -454,10 +456,10 @@ decodeAcceptChannel
   :: BS.ByteString -> Either DecodeError (AcceptChannel, BS.ByteString)
 decodeAcceptChannel !bs = do
   (tempChanId, rest1) <- decodeChannelIdBytes bs
-  (dustLimit, rest2) <- decodeSatoshis rest1
-  (maxHtlcVal, rest3) <- decodeMilliSatoshis rest2
-  (chanReserve, rest4) <- decodeSatoshis rest3
-  (htlcMin, rest5) <- decodeMilliSatoshis rest4
+  (dustLimit, rest2) <- decodeSatoshi rest1
+  (maxHtlcVal, rest3) <- decodeMilliSatoshi rest2
+  (chanReserve, rest4) <- decodeSatoshi rest3
+  (htlcMin, rest5) <- decodeMilliSatoshi rest4
   (minDepth, rest6) <- decodeU32E rest5
   (toSelfDelay, rest7) <- decodeU16E rest6
   (maxHtlcs, rest8) <- decodeU16E rest7
@@ -470,7 +472,7 @@ decodeAcceptChannel !bs = do
   tlvs <- decodeTlvs rest14
   let !msg = AcceptChannel
         { acceptChannelTempChannelId        = tempChanId
-        , acceptChannelDustLimitSatoshis    = dustLimit
+        , acceptChannelDustLimitSatoshi    = dustLimit
         , acceptChannelMaxHtlcValueInFlight = maxHtlcVal
         , acceptChannelChannelReserveSat    = chanReserve
         , acceptChannelHtlcMinimumMsat      = htlcMin
@@ -633,7 +635,7 @@ decodeShutdown !bs = do
 encodeClosingSigned :: ClosingSigned -> BS.ByteString
 encodeClosingSigned !msg = mconcat
   [ unChannelId (closingSignedChannelId msg)
-  , encodeU64 (unSatoshis (closingSignedFeeSatoshis msg))
+  , encodeU64 (unSatoshi (closingSignedFeeSatoshi msg))
   , unSignature (closingSignedSignature msg)
   , encodeTlvStream (closingSignedTlvs msg)
   ]
@@ -643,12 +645,12 @@ decodeClosingSigned
   :: BS.ByteString -> Either DecodeError (ClosingSigned, BS.ByteString)
 decodeClosingSigned !bs = do
   (chanId, rest1) <- decodeChannelIdBytes bs
-  (feeSats, rest2) <- decodeSatoshis rest1
+  (feeSats, rest2) <- decodeSatoshi rest1
   (sig, rest3) <- decodeSignatureBytes rest2
   tlvs <- decodeTlvs rest3
   let !msg = ClosingSigned
         { closingSignedChannelId   = chanId
-        , closingSignedFeeSatoshis = feeSats
+        , closingSignedFeeSatoshi = feeSats
         , closingSignedSignature   = sig
         , closingSignedTlvs        = tlvs
         }
@@ -679,7 +681,7 @@ encodeClosingComplete !msg = do
            , closerScript
            , encodeU16 (fromIntegral closeeLen)
            , closeeScript
-           , encodeU64 (unSatoshis (closingCompleteFeeSatoshis msg))
+           , encodeU64 (unSatoshi (closingCompleteFeeSatoshi msg))
            , encodeU32 (closingCompleteLocktime msg)
            , encodeTlvStream (closingCompleteTlvs msg)
            ]
@@ -691,14 +693,14 @@ decodeClosingComplete !bs = do
   (chanId, rest1) <- decodeChannelIdBytes bs
   (closerScript, rest2) <- decodeScriptPubKey rest1
   (closeeScript, rest3) <- decodeScriptPubKey rest2
-  (feeSats, rest4) <- decodeSatoshis rest3
+  (feeSats, rest4) <- decodeSatoshi rest3
   (locktime, rest5) <- decodeU32E rest4
   tlvs <- decodeTlvs rest5
   let !msg = ClosingComplete
         { closingCompleteChannelId    = chanId
         , closingCompleteCloserScript = closerScript
         , closingCompleteCloseeScript = closeeScript
-        , closingCompleteFeeSatoshis  = feeSats
+        , closingCompleteFeeSatoshi  = feeSats
         , closingCompleteLocktime     = locktime
         , closingCompleteTlvs         = tlvs
         }
@@ -729,7 +731,7 @@ encodeClosingSig !msg = do
            , closerScript
            , encodeU16 (fromIntegral closeeLen)
            , closeeScript
-           , encodeU64 (unSatoshis (closingSigFeeSatoshis msg))
+           , encodeU64 (unSatoshi (closingSigFeeSatoshi msg))
            , encodeU32 (closingSigLocktime msg)
            , encodeTlvStream (closingSigTlvs msg)
            ]
@@ -741,14 +743,14 @@ decodeClosingSig !bs = do
   (chanId, rest1) <- decodeChannelIdBytes bs
   (closerScript, rest2) <- decodeScriptPubKey rest1
   (closeeScript, rest3) <- decodeScriptPubKey rest2
-  (feeSats, rest4) <- decodeSatoshis rest3
+  (feeSats, rest4) <- decodeSatoshi rest3
   (locktime, rest5) <- decodeU32E rest4
   tlvs <- decodeTlvs rest5
   let !msg = ClosingSig
         { closingSigChannelId    = chanId
         , closingSigCloserScript = closerScript
         , closingSigCloseeScript = closeeScript
-        , closingSigFeeSatoshis  = feeSats
+        , closingSigFeeSatoshi  = feeSats
         , closingSigLocktime     = locktime
         , closingSigTlvs         = tlvs
         }
@@ -763,10 +765,10 @@ encodeOpenChannel2 !msg = mconcat
   , unChannelId (openChannel2TempChannelId msg)
   , encodeU32 (openChannel2FundingFeeratePerkw msg)
   , encodeU32 (openChannel2CommitFeeratePerkw msg)
-  , encodeU64 (unSatoshis (openChannel2FundingSatoshis msg))
-  , encodeU64 (unSatoshis (openChannel2DustLimitSatoshis msg))
-  , encodeU64 (unMilliSatoshis (openChannel2MaxHtlcValueInFlight msg))
-  , encodeU64 (unMilliSatoshis (openChannel2HtlcMinimumMsat msg))
+  , encodeU64 (unSatoshi (openChannel2FundingSatoshi msg))
+  , encodeU64 (unSatoshi (openChannel2DustLimitSatoshi msg))
+  , encodeU64 (unMilliSatoshi (openChannel2MaxHtlcValueInFlight msg))
+  , encodeU64 (unMilliSatoshi (openChannel2HtlcMinimumMsat msg))
   , encodeU16 (openChannel2ToSelfDelay msg)
   , encodeU16 (openChannel2MaxAcceptedHtlcs msg)
   , encodeU32 (openChannel2Locktime msg)
@@ -789,10 +791,10 @@ decodeOpenChannel2 !bs = do
   (tempCid, rest2) <- decodeChannelIdBytes rest1
   (fundingFeerate, rest3) <- decodeU32E rest2
   (commitFeerate, rest4) <- decodeU32E rest3
-  (fundingSats, rest5) <- decodeSatoshis rest4
-  (dustLimit, rest6) <- decodeSatoshis rest5
-  (maxHtlcVal, rest7) <- decodeMilliSatoshis rest6
-  (htlcMin, rest8) <- decodeMilliSatoshis rest7
+  (fundingSats, rest5) <- decodeSatoshi rest4
+  (dustLimit, rest6) <- decodeSatoshi rest5
+  (maxHtlcVal, rest7) <- decodeMilliSatoshi rest6
+  (htlcMin, rest8) <- decodeMilliSatoshi rest7
   (toSelfDelay, rest9) <- decodeU16E rest8
   (maxHtlcs, rest10) <- decodeU16E rest9
   (locktime, rest11) <- decodeU32E rest10
@@ -810,8 +812,8 @@ decodeOpenChannel2 !bs = do
         , openChannel2TempChannelId        = tempCid
         , openChannel2FundingFeeratePerkw  = fundingFeerate
         , openChannel2CommitFeeratePerkw   = commitFeerate
-        , openChannel2FundingSatoshis      = fundingSats
-        , openChannel2DustLimitSatoshis    = dustLimit
+        , openChannel2FundingSatoshi      = fundingSats
+        , openChannel2DustLimitSatoshi    = dustLimit
         , openChannel2MaxHtlcValueInFlight = maxHtlcVal
         , openChannel2HtlcMinimumMsat      = htlcMin
         , openChannel2ToSelfDelay          = toSelfDelay
@@ -833,10 +835,10 @@ decodeOpenChannel2 !bs = do
 encodeAcceptChannel2 :: AcceptChannel2 -> BS.ByteString
 encodeAcceptChannel2 !msg = mconcat
   [ unChannelId (acceptChannel2TempChannelId msg)
-  , encodeU64 (unSatoshis (acceptChannel2FundingSatoshis msg))
-  , encodeU64 (unSatoshis (acceptChannel2DustLimitSatoshis msg))
-  , encodeU64 (unMilliSatoshis (acceptChannel2MaxHtlcValueInFlight msg))
-  , encodeU64 (unMilliSatoshis (acceptChannel2HtlcMinimumMsat msg))
+  , encodeU64 (unSatoshi (acceptChannel2FundingSatoshi msg))
+  , encodeU64 (unSatoshi (acceptChannel2DustLimitSatoshi msg))
+  , encodeU64 (unMilliSatoshi (acceptChannel2MaxHtlcValueInFlight msg))
+  , encodeU64 (unMilliSatoshi (acceptChannel2HtlcMinimumMsat msg))
   , encodeU32 (acceptChannel2MinimumDepth msg)
   , encodeU16 (acceptChannel2ToSelfDelay msg)
   , encodeU16 (acceptChannel2MaxAcceptedHtlcs msg)
@@ -855,10 +857,10 @@ decodeAcceptChannel2
   :: BS.ByteString -> Either DecodeError (AcceptChannel2, BS.ByteString)
 decodeAcceptChannel2 !bs = do
   (tempCid, rest1) <- decodeChannelIdBytes bs
-  (fundingSats, rest2) <- decodeSatoshis rest1
-  (dustLimit, rest3) <- decodeSatoshis rest2
-  (maxHtlcVal, rest4) <- decodeMilliSatoshis rest3
-  (htlcMin, rest5) <- decodeMilliSatoshis rest4
+  (fundingSats, rest2) <- decodeSatoshi rest1
+  (dustLimit, rest3) <- decodeSatoshi rest2
+  (maxHtlcVal, rest4) <- decodeMilliSatoshi rest3
+  (htlcMin, rest5) <- decodeMilliSatoshi rest4
   (minDepth, rest6) <- decodeU32E rest5
   (toSelfDelay, rest7) <- decodeU16E rest6
   (maxHtlcs, rest8) <- decodeU16E rest7
@@ -872,8 +874,8 @@ decodeAcceptChannel2 !bs = do
   tlvs <- decodeTlvs rest15
   let !msg = AcceptChannel2
         { acceptChannel2TempChannelId        = tempCid
-        , acceptChannel2FundingSatoshis      = fundingSats
-        , acceptChannel2DustLimitSatoshis    = dustLimit
+        , acceptChannel2FundingSatoshi      = fundingSats
+        , acceptChannel2DustLimitSatoshi    = dustLimit
         , acceptChannel2MaxHtlcValueInFlight = maxHtlcVal
         , acceptChannel2HtlcMinimumMsat      = htlcMin
         , acceptChannel2MinimumDepth         = minDepth
@@ -928,7 +930,7 @@ encodeTxAddOutput !msg = do
   Right $! mconcat
     [ unChannelId (txAddOutputChannelId msg)
     , encodeU64 (txAddOutputSerialId msg)
-    , encodeU64 (unSatoshis (txAddOutputSats msg))
+    , encodeU64 (unSatoshi (txAddOutputSats msg))
     , scriptEnc
     ]
 
@@ -939,7 +941,7 @@ decodeTxAddOutput !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
   (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
                          (decodeU64 rest1)
-  (sats, rest3) <- decodeSatoshis rest2
+  (sats, rest3) <- decodeSatoshi rest2
   (scriptBs, rest4) <- decodeU16Bytes rest3
   let !msg = TxAddOutput
         { txAddOutputChannelId = cid
@@ -1118,7 +1120,7 @@ encodeUpdateAddHtlc :: UpdateAddHtlc -> BS.ByteString
 encodeUpdateAddHtlc !m = mconcat
   [ unChannelId (updateAddHtlcChannelId m)
   , encodeU64 (updateAddHtlcId m)
-  , encodeU64 (unMilliSatoshis (updateAddHtlcAmountMsat m))
+  , encodeU64 (unMilliSatoshi (updateAddHtlcAmountMsat m))
   , unPaymentHash (updateAddHtlcPaymentHash m)
   , encodeU32 (updateAddHtlcCltvExpiry m)
   , unOnionPacket (updateAddHtlcOnionPacket m)
@@ -1142,7 +1144,7 @@ decodeUpdateAddHtlc !bs = do
   let !msg = UpdateAddHtlc
         { updateAddHtlcChannelId   = cid
         , updateAddHtlcId          = htlcId
-        , updateAddHtlcAmountMsat  = MilliSatoshis amtMsat
+        , updateAddHtlcAmountMsat  = MilliSatoshi amtMsat
         , updateAddHtlcPaymentHash = pHash
         , updateAddHtlcCltvExpiry  = cltvExp
         , updateAddHtlcOnionPacket = onion
@@ -1274,7 +1276,7 @@ decodeCommitmentSigned !bs = do
 encodeRevokeAndAck :: RevokeAndAck -> BS.ByteString
 encodeRevokeAndAck !m = mconcat
   [ unChannelId (revokeAndAckChannelId m)
-  , unSecret (revokeAndAckPerCommitmentSecret m)
+  , unPerCommitmentSecret (revokeAndAckPerCommitmentSecret m)
   , unPoint (revokeAndAckNextPerCommitPoint m)
   ]
 
@@ -1283,7 +1285,7 @@ decodeRevokeAndAck
   :: BS.ByteString -> Either DecodeError (RevokeAndAck, BS.ByteString)
 decodeRevokeAndAck !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (sec, rest2) <- decodeSecretBytes rest1
+  (sec, rest2) <- decodePerCommitmentSecretBytes rest1
   (nextPoint, rest3) <- decodePointBytes rest2
   let !msg = RevokeAndAck
         { revokeAndAckChannelId           = cid
@@ -1319,7 +1321,7 @@ encodeChannelReestablish !m = mconcat
   [ unChannelId (channelReestablishChannelId m)
   , encodeU64 (channelReestablishNextCommitNum m)
   , encodeU64 (channelReestablishNextRevocationNum m)
-  , unSecret (channelReestablishYourLastCommitSecret m)
+  , unPerCommitmentSecret (channelReestablishYourLastCommitSecret m)
   , unPoint (channelReestablishMyCurrentCommitPoint m)
   , encodeTlvStream (channelReestablishTlvs m)
   ]
@@ -1333,7 +1335,7 @@ decodeChannelReestablish !bs = do
                            (decodeU64 rest1)
   (nextRevoke, rest3) <- maybe (Left DecodeInsufficientBytes) Right
                            (decodeU64 rest2)
-  (sec, rest4) <- decodeSecretBytes rest3
+  (sec, rest4) <- decodePerCommitmentSecretBytes rest3
   (myPoint, rest5) <- decodePointBytes rest4
   (tlvs, rest6) <- decodeOptionalTlvs rest5
   let !msg = ChannelReestablish

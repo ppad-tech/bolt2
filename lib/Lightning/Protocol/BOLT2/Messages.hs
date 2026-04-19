@@ -151,12 +151,12 @@ msgTypeWord MsgChannelReestablish      = 136
 data OpenChannel = OpenChannel
   { openChannelChainHash             :: !ChainHash
   , openChannelTempChannelId         :: !ChannelId
-  , openChannelFundingSatoshis       :: {-# UNPACK #-} !Satoshis
-  , openChannelPushMsat              :: {-# UNPACK #-} !MilliSatoshis
-  , openChannelDustLimitSatoshis     :: {-# UNPACK #-} !Satoshis
-  , openChannelMaxHtlcValueInFlight  :: {-# UNPACK #-} !MilliSatoshis
-  , openChannelChannelReserveSat     :: {-# UNPACK #-} !Satoshis
-  , openChannelHtlcMinimumMsat       :: {-# UNPACK #-} !MilliSatoshis
+  , openChannelFundingSatoshi       :: {-# UNPACK #-} !Satoshi
+  , openChannelPushMsat              :: {-# UNPACK #-} !MilliSatoshi
+  , openChannelDustLimitSatoshi     :: {-# UNPACK #-} !Satoshi
+  , openChannelMaxHtlcValueInFlight  :: {-# UNPACK #-} !MilliSatoshi
+  , openChannelChannelReserveSat     :: {-# UNPACK #-} !Satoshi
+  , openChannelHtlcMinimumMsat       :: {-# UNPACK #-} !MilliSatoshi
   , openChannelFeeratePerKw          :: {-# UNPACK #-} !Word32
   , openChannelToSelfDelay           :: {-# UNPACK #-} !Word16
   , openChannelMaxAcceptedHtlcs      :: {-# UNPACK #-} !Word16
@@ -178,10 +178,10 @@ instance NFData OpenChannel
 -- the new channel.
 data AcceptChannel = AcceptChannel
   { acceptChannelTempChannelId       :: !ChannelId
-  , acceptChannelDustLimitSatoshis   :: {-# UNPACK #-} !Satoshis
-  , acceptChannelMaxHtlcValueInFlight :: {-# UNPACK #-} !MilliSatoshis
-  , acceptChannelChannelReserveSat   :: {-# UNPACK #-} !Satoshis
-  , acceptChannelHtlcMinimumMsat     :: {-# UNPACK #-} !MilliSatoshis
+  , acceptChannelDustLimitSatoshi   :: {-# UNPACK #-} !Satoshi
+  , acceptChannelMaxHtlcValueInFlight :: {-# UNPACK #-} !MilliSatoshi
+  , acceptChannelChannelReserveSat   :: {-# UNPACK #-} !Satoshi
+  , acceptChannelHtlcMinimumMsat     :: {-# UNPACK #-} !MilliSatoshi
   , acceptChannelMinimumDepth        :: {-# UNPACK #-} !Word32
   , acceptChannelToSelfDelay         :: {-# UNPACK #-} !Word16
   , acceptChannelMaxAcceptedHtlcs    :: {-# UNPACK #-} !Word16
@@ -241,10 +241,10 @@ data OpenChannel2 = OpenChannel2
   , openChannel2TempChannelId        :: !ChannelId
   , openChannel2FundingFeeratePerkw  :: {-# UNPACK #-} !Word32
   , openChannel2CommitFeeratePerkw   :: {-# UNPACK #-} !Word32
-  , openChannel2FundingSatoshis      :: {-# UNPACK #-} !Satoshis
-  , openChannel2DustLimitSatoshis    :: {-# UNPACK #-} !Satoshis
-  , openChannel2MaxHtlcValueInFlight :: {-# UNPACK #-} !MilliSatoshis
-  , openChannel2HtlcMinimumMsat      :: {-# UNPACK #-} !MilliSatoshis
+  , openChannel2FundingSatoshi      :: {-# UNPACK #-} !Satoshi
+  , openChannel2DustLimitSatoshi    :: {-# UNPACK #-} !Satoshi
+  , openChannel2MaxHtlcValueInFlight :: {-# UNPACK #-} !MilliSatoshi
+  , openChannel2HtlcMinimumMsat      :: {-# UNPACK #-} !MilliSatoshi
   , openChannel2ToSelfDelay          :: {-# UNPACK #-} !Word16
   , openChannel2MaxAcceptedHtlcs     :: {-# UNPACK #-} !Word16
   , openChannel2Locktime             :: {-# UNPACK #-} !Word32
@@ -266,10 +266,10 @@ instance NFData OpenChannel2
 -- Indicates acceptance of the v2 channel.
 data AcceptChannel2 = AcceptChannel2
   { acceptChannel2TempChannelId        :: !ChannelId
-  , acceptChannel2FundingSatoshis      :: {-# UNPACK #-} !Satoshis
-  , acceptChannel2DustLimitSatoshis    :: {-# UNPACK #-} !Satoshis
-  , acceptChannel2MaxHtlcValueInFlight :: {-# UNPACK #-} !MilliSatoshis
-  , acceptChannel2HtlcMinimumMsat      :: {-# UNPACK #-} !MilliSatoshis
+  , acceptChannel2FundingSatoshi      :: {-# UNPACK #-} !Satoshi
+  , acceptChannel2DustLimitSatoshi    :: {-# UNPACK #-} !Satoshi
+  , acceptChannel2MaxHtlcValueInFlight :: {-# UNPACK #-} !MilliSatoshi
+  , acceptChannel2HtlcMinimumMsat      :: {-# UNPACK #-} !MilliSatoshi
   , acceptChannel2MinimumDepth         :: {-# UNPACK #-} !Word32
   , acceptChannel2ToSelfDelay          :: {-# UNPACK #-} !Word16
   , acceptChannel2MaxAcceptedHtlcs     :: {-# UNPACK #-} !Word16
@@ -306,7 +306,7 @@ instance NFData TxAddInput
 data TxAddOutput = TxAddOutput
   { txAddOutputChannelId :: !ChannelId
   , txAddOutputSerialId  :: {-# UNPACK #-} !Word64
-  , txAddOutputSats      :: {-# UNPACK #-} !Satoshis
+  , txAddOutputSats      :: {-# UNPACK #-} !Satoshi
   , txAddOutputScript    :: !ScriptPubKey
   } deriving stock (Eq, Show, Generic)
 
@@ -419,7 +419,7 @@ instance NFData Shutdown
 -- Used in legacy closing negotiation.
 data ClosingSigned = ClosingSigned
   { closingSignedChannelId   :: !ChannelId
-  , closingSignedFeeSatoshis :: {-# UNPACK #-} !Satoshis
+  , closingSignedFeeSatoshi :: {-# UNPACK #-} !Satoshi
   , closingSignedSignature   :: !Signature
   , closingSignedTlvs        :: !TlvStream
   } deriving stock (Eq, Show, Generic)
@@ -433,7 +433,7 @@ data ClosingComplete = ClosingComplete
   { closingCompleteChannelId       :: !ChannelId
   , closingCompleteCloserScript    :: !ScriptPubKey
   , closingCompleteCloseeScript    :: !ScriptPubKey
-  , closingCompleteFeeSatoshis     :: {-# UNPACK #-} !Satoshis
+  , closingCompleteFeeSatoshi     :: {-# UNPACK #-} !Satoshi
   , closingCompleteLocktime        :: {-# UNPACK #-} !Word32
   , closingCompleteTlvs            :: !TlvStream
   } deriving stock (Eq, Show, Generic)
@@ -447,7 +447,7 @@ data ClosingSig = ClosingSig
   { closingSigChannelId       :: !ChannelId
   , closingSigCloserScript    :: !ScriptPubKey
   , closingSigCloseeScript    :: !ScriptPubKey
-  , closingSigFeeSatoshis     :: {-# UNPACK #-} !Satoshis
+  , closingSigFeeSatoshi     :: {-# UNPACK #-} !Satoshi
   , closingSigLocktime        :: {-# UNPACK #-} !Word32
   , closingSigTlvs            :: !TlvStream
   } deriving stock (Eq, Show, Generic)
@@ -463,7 +463,7 @@ instance NFData ClosingSig
 data UpdateAddHtlc = UpdateAddHtlc
   { updateAddHtlcChannelId       :: !ChannelId
   , updateAddHtlcId              :: {-# UNPACK #-} !Word64
-  , updateAddHtlcAmountMsat      :: {-# UNPACK #-} !MilliSatoshis
+  , updateAddHtlcAmountMsat      :: {-# UNPACK #-} !MilliSatoshi
   , updateAddHtlcPaymentHash     :: !PaymentHash
   , updateAddHtlcCltvExpiry      :: {-# UNPACK #-} !Word32
   , updateAddHtlcOnionPacket     :: !OnionPacket
@@ -526,7 +526,7 @@ instance NFData CommitmentSigned
 -- of the commitment_signed.
 data RevokeAndAck = RevokeAndAck
   { revokeAndAckChannelId             :: !ChannelId
-  , revokeAndAckPerCommitmentSecret   :: !Secret
+  , revokeAndAckPerCommitmentSecret   :: !PerCommitmentSecret
   , revokeAndAckNextPerCommitPoint    :: !Point
   } deriving stock (Eq, Show, Generic)
 
@@ -551,7 +551,7 @@ data ChannelReestablish = ChannelReestablish
   { channelReestablishChannelId            :: !ChannelId
   , channelReestablishNextCommitNum        :: {-# UNPACK #-} !Word64
   , channelReestablishNextRevocationNum    :: {-# UNPACK #-} !Word64
-  , channelReestablishYourLastCommitSecret :: !Secret
+  , channelReestablishYourLastCommitSecret :: !PerCommitmentSecret
   , channelReestablishMyCurrentCommitPoint :: !Point
   , channelReestablishTlvs                 :: !TlvStream
   } deriving stock (Eq, Show, Generic)

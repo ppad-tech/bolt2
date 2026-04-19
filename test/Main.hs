@@ -61,9 +61,10 @@ testPaymentPreimage = fromJust $ paymentPreimage (BS.replicate 32 0xbb)
 testOnionPacket :: OnionPacket
 testOnionPacket = fromJust $ onionPacket (BS.replicate 1366 0x00)
 
--- | Create a valid Secret (32 bytes).
-testSecret :: Secret
-testSecret = fromJust $ secret (BS.replicate 32 0x11)
+-- | Create a valid PerCommitmentSecret (32 bytes).
+testSecret :: PerCommitmentSecret
+testSecret = fromJust $
+  perCommitmentSecret (BS.replicate 32 0x11)
 
 -- | Empty TLV stream for messages.
 emptyTlvs :: TlvStream
@@ -78,12 +79,12 @@ v1_establishment_tests = testGroup "V1 Channel Establishment" [
         let msg = OpenChannel
               { openChannelChainHash = testChainHash
               , openChannelTempChannelId = testChannelId
-              , openChannelFundingSatoshis = Satoshis 1000000
-              , openChannelPushMsat = MilliSatoshis 500000
-              , openChannelDustLimitSatoshis = Satoshis 546
-              , openChannelMaxHtlcValueInFlight = MilliSatoshis 100000000
-              , openChannelChannelReserveSat = Satoshis 10000
-              , openChannelHtlcMinimumMsat = MilliSatoshis 1000
+              , openChannelFundingSatoshi = Satoshi 1000000
+              , openChannelPushMsat = MilliSatoshi 500000
+              , openChannelDustLimitSatoshi = Satoshi 546
+              , openChannelMaxHtlcValueInFlight = MilliSatoshi 100000000
+              , openChannelChannelReserveSat = Satoshi 10000
+              , openChannelHtlcMinimumMsat = MilliSatoshi 1000
               , openChannelFeeratePerKw = 2500
               , openChannelToSelfDelay = 144
               , openChannelMaxAcceptedHtlcs = 483
@@ -105,10 +106,10 @@ v1_establishment_tests = testGroup "V1 Channel Establishment" [
       testCase "encode/decode roundtrip" $ do
         let msg = AcceptChannel
               { acceptChannelTempChannelId = testChannelId
-              , acceptChannelDustLimitSatoshis = Satoshis 546
-              , acceptChannelMaxHtlcValueInFlight = MilliSatoshis 100000000
-              , acceptChannelChannelReserveSat = Satoshis 10000
-              , acceptChannelHtlcMinimumMsat = MilliSatoshis 1000
+              , acceptChannelDustLimitSatoshi = Satoshi 546
+              , acceptChannelMaxHtlcValueInFlight = MilliSatoshi 100000000
+              , acceptChannelChannelReserveSat = Satoshi 10000
+              , acceptChannelHtlcMinimumMsat = MilliSatoshi 1000
               , acceptChannelMinimumDepth = 3
               , acceptChannelToSelfDelay = 144
               , acceptChannelMaxAcceptedHtlcs = 483
@@ -185,10 +186,10 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
               , openChannel2TempChannelId = testChannelId
               , openChannel2FundingFeeratePerkw = 2500
               , openChannel2CommitFeeratePerkw = 2000
-              , openChannel2FundingSatoshis = Satoshis 1000000
-              , openChannel2DustLimitSatoshis = Satoshis 546
-              , openChannel2MaxHtlcValueInFlight = MilliSatoshis 100000000
-              , openChannel2HtlcMinimumMsat = MilliSatoshis 1000
+              , openChannel2FundingSatoshi = Satoshi 1000000
+              , openChannel2DustLimitSatoshi = Satoshi 546
+              , openChannel2MaxHtlcValueInFlight = MilliSatoshi 100000000
+              , openChannel2HtlcMinimumMsat = MilliSatoshi 1000
               , openChannel2ToSelfDelay = 144
               , openChannel2MaxAcceptedHtlcs = 483
               , openChannel2Locktime = 0
@@ -211,10 +212,10 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
       testCase "encode/decode roundtrip" $ do
         let msg = AcceptChannel2
               { acceptChannel2TempChannelId = testChannelId
-              , acceptChannel2FundingSatoshis = Satoshis 500000
-              , acceptChannel2DustLimitSatoshis = Satoshis 546
-              , acceptChannel2MaxHtlcValueInFlight = MilliSatoshis 100000000
-              , acceptChannel2HtlcMinimumMsat = MilliSatoshis 1000
+              , acceptChannel2FundingSatoshi = Satoshi 500000
+              , acceptChannel2DustLimitSatoshi = Satoshi 546
+              , acceptChannel2MaxHtlcValueInFlight = MilliSatoshi 100000000
+              , acceptChannel2HtlcMinimumMsat = MilliSatoshi 1000
               , acceptChannel2MinimumDepth = 3
               , acceptChannel2ToSelfDelay = 144
               , acceptChannel2MaxAcceptedHtlcs = 483
@@ -265,7 +266,7 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
         let msg = TxAddOutput
               { txAddOutputChannelId = testChannelId
               , txAddOutputSerialId = 54321
-              , txAddOutputSats = Satoshis 100000
+              , txAddOutputSats = Satoshi 100000
               , txAddOutputScript = scriptPubKey (BS.pack [0x00, 0x14] <>
                                                   BS.replicate 20 0xaa)
               }
@@ -433,7 +434,7 @@ close_tests = testGroup "Channel Close" [
       testCase "encode/decode roundtrip" $ do
         let msg = ClosingSigned
               { closingSignedChannelId = testChannelId
-              , closingSignedFeeSatoshis = Satoshis 1000
+              , closingSignedFeeSatoshi = Satoshi 1000
               , closingSignedSignature = testSignature
               , closingSignedTlvs = emptyTlvs
               }
@@ -452,7 +453,7 @@ close_tests = testGroup "Channel Close" [
               { closingCompleteChannelId = testChannelId
               , closingCompleteCloserScript = closerScript
               , closingCompleteCloseeScript = closeeScript
-              , closingCompleteFeeSatoshis = Satoshis 500
+              , closingCompleteFeeSatoshi = Satoshi 500
               , closingCompleteLocktime = 0
               , closingCompleteTlvs = emptyTlvs
               }
@@ -472,7 +473,7 @@ close_tests = testGroup "Channel Close" [
               { closingSigChannelId = testChannelId
               , closingSigCloserScript = closerScript
               , closingSigCloseeScript = closeeScript
-              , closingSigFeeSatoshis = Satoshis 500
+              , closingSigFeeSatoshi = Satoshi 500
               , closingSigLocktime = 100
               , closingSigTlvs = emptyTlvs
               }
@@ -493,7 +494,7 @@ normal_operation_tests = testGroup "Normal Operation" [
         let msg = UpdateAddHtlc
               { updateAddHtlcChannelId = testChannelId
               , updateAddHtlcId = 0
-              , updateAddHtlcAmountMsat = MilliSatoshis 10000000
+              , updateAddHtlcAmountMsat = MilliSatoshi 10000000
               , updateAddHtlcPaymentHash = testPaymentHash
               , updateAddHtlcCltvExpiry = 800144
               , updateAddHtlcOnionPacket = testOnionPacket
@@ -612,7 +613,7 @@ normal_operation_tests = testGroup "Normal Operation" [
 reestablish_tests :: TestTree
 reestablish_tests = testGroup "Channel Reestablish" [
     testCase "encode/decode roundtrip" $ do
-      let sec = fromJust $ secret (BS.replicate 32 0x22)
+      let sec = fromJust $ perCommitmentSecret (BS.replicate 32 0x22)
           msg = ChannelReestablish
             { channelReestablishChannelId = testChannelId
             , channelReestablishNextCommitNum = 5
@@ -626,7 +627,7 @@ reestablish_tests = testGroup "Channel Reestablish" [
         Right (decoded, _) -> decoded @?= msg
         Left e -> assertFailure $ "decode failed: " ++ show e
   , testCase "roundtrip with zero counters" $ do
-      let sec = fromJust $ secret (BS.replicate 32 0x00)
+      let sec = fromJust $ perCommitmentSecret (BS.replicate 32 0x00)
           msg = ChannelReestablish
             { channelReestablishChannelId = testChannelId
             , channelReestablishNextCommitNum = 1
@@ -712,7 +713,7 @@ error_tests = testGroup "Error Conditions" [
               { closingCompleteChannelId = testChannelId
               , closingCompleteCloserScript = oversizedScript
               , closingCompleteCloseeScript = normalScript
-              , closingCompleteFeeSatoshis = Satoshis 500
+              , closingCompleteFeeSatoshi = Satoshi 500
               , closingCompleteLocktime = 0
               , closingCompleteTlvs = emptyTlvs
               }
@@ -726,7 +727,7 @@ error_tests = testGroup "Error Conditions" [
               { closingCompleteChannelId = testChannelId
               , closingCompleteCloserScript = normalScript
               , closingCompleteCloseeScript = oversizedScript
-              , closingCompleteFeeSatoshis = Satoshis 500
+              , closingCompleteFeeSatoshi = Satoshi 500
               , closingCompleteLocktime = 0
               , closingCompleteTlvs = emptyTlvs
               }
@@ -740,7 +741,7 @@ error_tests = testGroup "Error Conditions" [
               { closingSigChannelId = testChannelId
               , closingSigCloserScript = oversizedScript
               , closingSigCloseeScript = normalScript
-              , closingSigFeeSatoshis = Satoshis 500
+              , closingSigFeeSatoshi = Satoshi 500
               , closingSigLocktime = 0
               , closingSigTlvs = emptyTlvs
               }
@@ -820,12 +821,12 @@ propOpenChannelRoundtrip = property $ do
   let msg = OpenChannel
         { openChannelChainHash = testChainHash
         , openChannelTempChannelId = testChannelId
-        , openChannelFundingSatoshis = Satoshis 1000000
-        , openChannelPushMsat = MilliSatoshis 500000
-        , openChannelDustLimitSatoshis = Satoshis 546
-        , openChannelMaxHtlcValueInFlight = MilliSatoshis 100000000
-        , openChannelChannelReserveSat = Satoshis 10000
-        , openChannelHtlcMinimumMsat = MilliSatoshis 1000
+        , openChannelFundingSatoshi = Satoshi 1000000
+        , openChannelPushMsat = MilliSatoshi 500000
+        , openChannelDustLimitSatoshi = Satoshi 546
+        , openChannelMaxHtlcValueInFlight = MilliSatoshi 100000000
+        , openChannelChannelReserveSat = Satoshi 10000
+        , openChannelHtlcMinimumMsat = MilliSatoshi 1000
         , openChannelFeeratePerKw = 2500
         , openChannelToSelfDelay = 144
         , openChannelMaxAcceptedHtlcs = 483
@@ -848,10 +849,10 @@ propAcceptChannelRoundtrip :: Property
 propAcceptChannelRoundtrip = property $ do
   let msg = AcceptChannel
         { acceptChannelTempChannelId = testChannelId
-        , acceptChannelDustLimitSatoshis = Satoshis 546
-        , acceptChannelMaxHtlcValueInFlight = MilliSatoshis 100000000
-        , acceptChannelChannelReserveSat = Satoshis 10000
-        , acceptChannelHtlcMinimumMsat = MilliSatoshis 1000
+        , acceptChannelDustLimitSatoshi = Satoshi 546
+        , acceptChannelMaxHtlcValueInFlight = MilliSatoshi 100000000
+        , acceptChannelChannelReserveSat = Satoshi 10000
+        , acceptChannelHtlcMinimumMsat = MilliSatoshi 1000
         , acceptChannelMinimumDepth = 3
         , acceptChannelToSelfDelay = 144
         , acceptChannelMaxAcceptedHtlcs = 483
@@ -915,10 +916,10 @@ propOpenChannel2Roundtrip = property $ do
         , openChannel2TempChannelId = testChannelId
         , openChannel2FundingFeeratePerkw = 2500
         , openChannel2CommitFeeratePerkw = 2000
-        , openChannel2FundingSatoshis = Satoshis 1000000
-        , openChannel2DustLimitSatoshis = Satoshis 546
-        , openChannel2MaxHtlcValueInFlight = MilliSatoshis 100000000
-        , openChannel2HtlcMinimumMsat = MilliSatoshis 1000
+        , openChannel2FundingSatoshi = Satoshi 1000000
+        , openChannel2DustLimitSatoshi = Satoshi 546
+        , openChannel2MaxHtlcValueInFlight = MilliSatoshi 100000000
+        , openChannel2HtlcMinimumMsat = MilliSatoshi 1000
         , openChannel2ToSelfDelay = 144
         , openChannel2MaxAcceptedHtlcs = 483
         , openChannel2Locktime = 0
@@ -942,10 +943,10 @@ propAcceptChannel2Roundtrip :: Property
 propAcceptChannel2Roundtrip = property $ do
   let msg = AcceptChannel2
         { acceptChannel2TempChannelId = testChannelId
-        , acceptChannel2FundingSatoshis = Satoshis 500000
-        , acceptChannel2DustLimitSatoshis = Satoshis 546
-        , acceptChannel2MaxHtlcValueInFlight = MilliSatoshis 100000000
-        , acceptChannel2HtlcMinimumMsat = MilliSatoshis 1000
+        , acceptChannel2FundingSatoshi = Satoshi 500000
+        , acceptChannel2DustLimitSatoshi = Satoshi 546
+        , acceptChannel2MaxHtlcValueInFlight = MilliSatoshi 100000000
+        , acceptChannel2HtlcMinimumMsat = MilliSatoshi 1000
         , acceptChannel2MinimumDepth = 3
         , acceptChannel2ToSelfDelay = 144
         , acceptChannel2MaxAcceptedHtlcs = 483
@@ -987,7 +988,7 @@ propTxAddOutputRoundtrip sats scriptBytes = property $ do
       msg = TxAddOutput
         { txAddOutputChannelId = testChannelId
         , txAddOutputSerialId = 54321
-        , txAddOutputSats = Satoshis sats
+        , txAddOutputSats = Satoshi sats
         , txAddOutputScript = script
         }
   case encodeTxAddOutput msg of
@@ -1115,7 +1116,7 @@ propClosingSignedRoundtrip :: Word64 -> Property
 propClosingSignedRoundtrip feeSats = property $ do
   let msg = ClosingSigned
         { closingSignedChannelId = testChannelId
-        , closingSignedFeeSatoshis = Satoshis feeSats
+        , closingSignedFeeSatoshi = Satoshi feeSats
         , closingSignedSignature = testSignature
         , closingSignedTlvs = emptyTlvs
         }
@@ -1135,7 +1136,7 @@ propClosingCompleteRoundtrip feeSats locktime = property $ do
         { closingCompleteChannelId = testChannelId
         , closingCompleteCloserScript = closerScript
         , closingCompleteCloseeScript = closeeScript
-        , closingCompleteFeeSatoshis = Satoshis feeSats
+        , closingCompleteFeeSatoshi = Satoshi feeSats
         , closingCompleteLocktime = locktime
         , closingCompleteTlvs = emptyTlvs
         }
@@ -1156,7 +1157,7 @@ propClosingSigRoundtrip feeSats locktime = property $ do
         { closingSigChannelId = testChannelId
         , closingSigCloserScript = closerScript
         , closingSigCloseeScript = closeeScript
-        , closingSigFeeSatoshis = Satoshis feeSats
+        , closingSigFeeSatoshi = Satoshi feeSats
         , closingSigLocktime = locktime
         , closingSigTlvs = emptyTlvs
         }
@@ -1172,7 +1173,7 @@ propUpdateAddHtlcRoundtrip htlcId amountMsat cltvExpiry = property $ do
   let msg = UpdateAddHtlc
         { updateAddHtlcChannelId = testChannelId
         , updateAddHtlcId = htlcId
-        , updateAddHtlcAmountMsat = MilliSatoshis amountMsat
+        , updateAddHtlcAmountMsat = MilliSatoshi amountMsat
         , updateAddHtlcPaymentHash = testPaymentHash
         , updateAddHtlcCltvExpiry = cltvExpiry
         , updateAddHtlcOnionPacket = testOnionPacket
@@ -1271,7 +1272,7 @@ propUpdateFeeRoundtrip feerate = property $ do
 -- Property: ChannelReestablish roundtrip
 propChannelReestablishRoundtrip :: Word64 -> Word64 -> Property
 propChannelReestablishRoundtrip nextCommit nextRevoke = property $ do
-  let sec = fromJust $ secret (BS.replicate 32 0x22)
+  let sec = fromJust $ perCommitmentSecret (BS.replicate 32 0x22)
       msg = ChannelReestablish
         { channelReestablishChannelId = testChannelId
         , channelReestablishNextCommitNum = nextCommit
