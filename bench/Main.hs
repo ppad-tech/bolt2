@@ -186,7 +186,7 @@ encodedClosingSigned = encodeClosingSigned testClosingSigned
 testUpdateAddHtlc :: UpdateAddHtlc
 testUpdateAddHtlc = UpdateAddHtlc
   { updateAddHtlcChannelId   = testChannelId
-  , updateAddHtlcId          = 0
+  , updateAddHtlcId          = htlcId 0
   , updateAddHtlcAmountMsat  = MilliSatoshi 10000000
   , updateAddHtlcPaymentHash = testPaymentHash
   , updateAddHtlcCltvExpiry  = 800000

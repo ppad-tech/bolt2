@@ -292,7 +292,7 @@ instance NFData AcceptChannel2
 -- Adds a transaction input to the collaborative transaction.
 data TxAddInput = TxAddInput
   { txAddInputChannelId :: !ChannelId
-  , txAddInputSerialId  :: {-# UNPACK #-} !Word64
+  , txAddInputSerialId  :: !SerialId
   , txAddInputPrevTx    :: !BS.ByteString
   , txAddInputPrevVout  :: {-# UNPACK #-} !Word32
   , txAddInputSequence  :: {-# UNPACK #-} !Word32
@@ -305,7 +305,7 @@ instance NFData TxAddInput
 -- Adds a transaction output to the collaborative transaction.
 data TxAddOutput = TxAddOutput
   { txAddOutputChannelId :: !ChannelId
-  , txAddOutputSerialId  :: {-# UNPACK #-} !Word64
+  , txAddOutputSerialId  :: !SerialId
   , txAddOutputSats      :: {-# UNPACK #-} !Satoshi
   , txAddOutputScript    :: !ScriptPubKey
   } deriving stock (Eq, Show, Generic)
@@ -317,7 +317,7 @@ instance NFData TxAddOutput
 -- Removes a previously added input from the collaborative transaction.
 data TxRemoveInput = TxRemoveInput
   { txRemoveInputChannelId :: !ChannelId
-  , txRemoveInputSerialId  :: {-# UNPACK #-} !Word64
+  , txRemoveInputSerialId  :: !SerialId
   } deriving stock (Eq, Show, Generic)
 
 instance NFData TxRemoveInput
@@ -327,7 +327,7 @@ instance NFData TxRemoveInput
 -- Removes a previously added output from the collaborative transaction.
 data TxRemoveOutput = TxRemoveOutput
   { txRemoveOutputChannelId :: !ChannelId
-  , txRemoveOutputSerialId  :: {-# UNPACK #-} !Word64
+  , txRemoveOutputSerialId  :: !SerialId
   } deriving stock (Eq, Show, Generic)
 
 instance NFData TxRemoveOutput
@@ -399,7 +399,7 @@ instance NFData TxAbort
 -- quiescence.
 data Stfu = Stfu
   { stfuChannelId :: !ChannelId
-  , stfuInitiator :: {-# UNPACK #-} !Word8
+  , stfuInitiator :: !Initiator
   } deriving stock (Eq, Show, Generic)
 
 instance NFData Stfu
@@ -462,7 +462,7 @@ instance NFData ClosingSig
 -- preimage.
 data UpdateAddHtlc = UpdateAddHtlc
   { updateAddHtlcChannelId       :: !ChannelId
-  , updateAddHtlcId              :: {-# UNPACK #-} !Word64
+  , updateAddHtlcId              :: !HtlcId
   , updateAddHtlcAmountMsat      :: {-# UNPACK #-} !MilliSatoshi
   , updateAddHtlcPaymentHash     :: !PaymentHash
   , updateAddHtlcCltvExpiry      :: {-# UNPACK #-} !Word32
@@ -477,7 +477,7 @@ instance NFData UpdateAddHtlc
 -- Supplies the preimage to fulfill an HTLC.
 data UpdateFulfillHtlc = UpdateFulfillHtlc
   { updateFulfillHtlcChannelId       :: !ChannelId
-  , updateFulfillHtlcId              :: {-# UNPACK #-} !Word64
+  , updateFulfillHtlcId              :: !HtlcId
   , updateFulfillHtlcPaymentPreimage :: !PaymentPreimage
   , updateFulfillHtlcTlvs            :: !TlvStream
   } deriving stock (Eq, Show, Generic)
@@ -489,7 +489,7 @@ instance NFData UpdateFulfillHtlc
 -- Indicates an HTLC has failed.
 data UpdateFailHtlc = UpdateFailHtlc
   { updateFailHtlcChannelId :: !ChannelId
-  , updateFailHtlcId        :: {-# UNPACK #-} !Word64
+  , updateFailHtlcId        :: !HtlcId
   , updateFailHtlcReason    :: !BS.ByteString
   , updateFailHtlcTlvs      :: !TlvStream
   } deriving stock (Eq, Show, Generic)
@@ -501,7 +501,7 @@ instance NFData UpdateFailHtlc
 -- Indicates an HTLC could not be parsed.
 data UpdateFailMalformedHtlc = UpdateFailMalformedHtlc
   { updateFailMalformedHtlcChannelId   :: !ChannelId
-  , updateFailMalformedHtlcId          :: {-# UNPACK #-} !Word64
+  , updateFailMalformedHtlcId          :: !HtlcId
   , updateFailMalformedHtlcSha256Onion :: !PaymentHash
   , updateFailMalformedHtlcFailureCode :: {-# UNPACK #-} !Word16
   } deriving stock (Eq, Show, Generic)
