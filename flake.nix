@@ -40,10 +40,14 @@
             [ llvm clang ];
 
         tx = ppad-tx.packages.${system}.default;
+        tx-llvm =
+          hlib.addBuildTools
+            (hlib.enableCabalFlag tx "llvm")
+            [ llvm clang ];
 
         hpkgs = pkgs.haskell.packages.ghc910.extend (new: old: {
           ppad-bolt1 = bolt1-llvm;
-          ppad-tx = tx;
+          ppad-tx = tx-llvm;
           ${lib} = new.callCabal2nix lib ./. {
             ppad-bolt1 = new.ppad-bolt1;
             ppad-tx = new.ppad-tx;
