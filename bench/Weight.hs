@@ -156,7 +156,7 @@ mkUpdateAddHtlc
   :: ChannelId -> PaymentHash -> OnionPacket -> TlvStream -> UpdateAddHtlc
 mkUpdateAddHtlc !cid !ph !onion !tlvs = UpdateAddHtlc
   { updateAddHtlcChannelId   = cid
-  , updateAddHtlcId          = 0
+  , updateAddHtlcId          = htlcId 0
   , updateAddHtlcAmountMsat  = MilliSatoshi 10000000
   , updateAddHtlcPaymentHash = ph
   , updateAddHtlcCltvExpiry  = 800000

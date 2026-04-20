@@ -128,6 +128,7 @@ data DecodeError
   | DecodeInvalidPaymentPreimage
   | DecodeInvalidOnionPacket
   | DecodeInvalidSecret
+  | DecodeInvalidInitiator
   | DecodeTlvError !TlvError
   deriving stock (Eq, Show, Generic)
 
@@ -580,18 +581,24 @@ decodeChannelReady !bs = do
 encodeStfu :: Stfu -> BS.ByteString
 encodeStfu !msg = mconcat
   [ unChannelId (stfuChannelId msg)
-  , BS.singleton (stfuInitiator msg)
+  , BS.singleton $! case stfuInitiator msg of
+      IsInitiator  -> 1
+      NotInitiator -> 0
   ]
 
 -- | Decode a Stfu message (type 2).
 decodeStfu :: BS.ByteString -> Either DecodeError (Stfu, BS.ByteString)
 decodeStfu !bs = do
   (chanId, rest1) <- decodeChannelIdBytes bs
-  (initiator, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                          (decodeU8 rest1)
+  (raw, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU8 rest1)
+  ini <- case raw of
+    1 -> Right IsInitiator
+    0 -> Right NotInitiator
+    _ -> Left DecodeInvalidInitiator
   let !msg = Stfu
         { stfuChannelId = chanId
-        , stfuInitiator = initiator
+        , stfuInitiator = ini
         }
   Right (msg, rest2)
 
@@ -898,7 +905,7 @@ encodeTxAddInput !msg = do
   prevTxEnc <- encodeU16BytesE (txAddInputPrevTx msg)
   Right $! mconcat
     [ unChannelId (txAddInputChannelId msg)
-    , encodeU64 (txAddInputSerialId msg)
+    , encodeU64 (unSerialId (txAddInputSerialId msg))
     , prevTxEnc
     , encodeU32 (txAddInputPrevVout msg)
     , encodeU32 (txAddInputSequence msg)
@@ -909,14 +916,14 @@ decodeTxAddInput
   :: BS.ByteString -> Either DecodeError (TxAddInput, BS.ByteString)
 decodeTxAddInput !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                         (decodeU64 rest1)
+  (sid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   (prevTx, rest3) <- decodeU16Bytes rest2
   (prevVout, rest4) <- decodeU32E rest3
   (seqNum, rest5) <- decodeU32E rest4
   let !msg = TxAddInput
         { txAddInputChannelId = cid
-        , txAddInputSerialId  = serialId
+        , txAddInputSerialId  = serialId sid
         , txAddInputPrevTx    = prevTx
         , txAddInputPrevVout  = prevVout
         , txAddInputSequence  = seqNum
@@ -929,7 +936,7 @@ encodeTxAddOutput !msg = do
   scriptEnc <- encodeU16BytesE (unScriptPubKey (txAddOutputScript msg))
   Right $! mconcat
     [ unChannelId (txAddOutputChannelId msg)
-    , encodeU64 (txAddOutputSerialId msg)
+    , encodeU64 (unSerialId (txAddOutputSerialId msg))
     , encodeU64 (unSatoshi (txAddOutputSats msg))
     , scriptEnc
     ]
@@ -939,13 +946,13 @@ decodeTxAddOutput
   :: BS.ByteString -> Either DecodeError (TxAddOutput, BS.ByteString)
 decodeTxAddOutput !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                         (decodeU64 rest1)
+  (sid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   (sats, rest3) <- decodeSatoshi rest2
   (scriptBs, rest4) <- decodeU16Bytes rest3
   let !msg = TxAddOutput
         { txAddOutputChannelId = cid
-        , txAddOutputSerialId  = serialId
+        , txAddOutputSerialId  = serialId sid
         , txAddOutputSats      = sats
         , txAddOutputScript    = scriptPubKey scriptBs
         }
@@ -955,7 +962,7 @@ decodeTxAddOutput !bs = do
 encodeTxRemoveInput :: TxRemoveInput -> BS.ByteString
 encodeTxRemoveInput !msg = mconcat
   [ unChannelId (txRemoveInputChannelId msg)
-  , encodeU64 (txRemoveInputSerialId msg)
+  , encodeU64 (unSerialId (txRemoveInputSerialId msg))
   ]
 
 -- | Decode a TxRemoveInput message (type 68).
@@ -963,11 +970,11 @@ decodeTxRemoveInput
   :: BS.ByteString -> Either DecodeError (TxRemoveInput, BS.ByteString)
 decodeTxRemoveInput !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                         (decodeU64 rest1)
+  (sid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   let !msg = TxRemoveInput
         { txRemoveInputChannelId = cid
-        , txRemoveInputSerialId  = serialId
+        , txRemoveInputSerialId  = serialId sid
         }
   Right (msg, rest2)
 
@@ -975,7 +982,7 @@ decodeTxRemoveInput !bs = do
 encodeTxRemoveOutput :: TxRemoveOutput -> BS.ByteString
 encodeTxRemoveOutput !msg = mconcat
   [ unChannelId (txRemoveOutputChannelId msg)
-  , encodeU64 (txRemoveOutputSerialId msg)
+  , encodeU64 (unSerialId (txRemoveOutputSerialId msg))
   ]
 
 -- | Decode a TxRemoveOutput message (type 69).
@@ -983,11 +990,11 @@ decodeTxRemoveOutput
   :: BS.ByteString -> Either DecodeError (TxRemoveOutput, BS.ByteString)
 decodeTxRemoveOutput !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (serialId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                         (decodeU64 rest1)
+  (sid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   let !msg = TxRemoveOutput
         { txRemoveOutputChannelId = cid
-        , txRemoveOutputSerialId  = serialId
+        , txRemoveOutputSerialId  = serialId sid
         }
   Right (msg, rest2)
 
@@ -1119,7 +1126,7 @@ decodeTxAbort !bs = do
 encodeUpdateAddHtlc :: UpdateAddHtlc -> BS.ByteString
 encodeUpdateAddHtlc !m = mconcat
   [ unChannelId (updateAddHtlcChannelId m)
-  , encodeU64 (updateAddHtlcId m)
+  , encodeU64 (unHtlcId (updateAddHtlcId m))
   , encodeU64 (unMilliSatoshi (updateAddHtlcAmountMsat m))
   , unPaymentHash (updateAddHtlcPaymentHash m)
   , encodeU32 (updateAddHtlcCltvExpiry m)
@@ -1133,8 +1140,8 @@ decodeUpdateAddHtlc
   :: BS.ByteString -> Either DecodeError (UpdateAddHtlc, BS.ByteString)
 decodeUpdateAddHtlc !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                       (decodeU64 rest1)
+  (hid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   (amtMsat, rest3) <- maybe (Left DecodeInsufficientBytes) Right
                         (decodeU64 rest2)
   (pHash, rest4) <- decodePaymentHashBytes rest3
@@ -1143,7 +1150,7 @@ decodeUpdateAddHtlc !bs = do
   (tlvs, rest7) <- decodeOptionalTlvs rest6
   let !msg = UpdateAddHtlc
         { updateAddHtlcChannelId   = cid
-        , updateAddHtlcId          = htlcId
+        , updateAddHtlcId          = htlcId hid
         , updateAddHtlcAmountMsat  = MilliSatoshi amtMsat
         , updateAddHtlcPaymentHash = pHash
         , updateAddHtlcCltvExpiry  = cltvExp
@@ -1157,7 +1164,7 @@ decodeUpdateAddHtlc !bs = do
 encodeUpdateFulfillHtlc :: UpdateFulfillHtlc -> BS.ByteString
 encodeUpdateFulfillHtlc !m = mconcat
   [ unChannelId (updateFulfillHtlcChannelId m)
-  , encodeU64 (updateFulfillHtlcId m)
+  , encodeU64 (unHtlcId (updateFulfillHtlcId m))
   , unPaymentPreimage (updateFulfillHtlcPaymentPreimage m)
   , encodeTlvStream (updateFulfillHtlcTlvs m)
   ]
@@ -1167,13 +1174,13 @@ decodeUpdateFulfillHtlc
   :: BS.ByteString -> Either DecodeError (UpdateFulfillHtlc, BS.ByteString)
 decodeUpdateFulfillHtlc !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                       (decodeU64 rest1)
+  (hid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   (preimage, rest3) <- decodePaymentPreimageBytes rest2
   (tlvs, rest4) <- decodeOptionalTlvs rest3
   let !msg = UpdateFulfillHtlc
         { updateFulfillHtlcChannelId       = cid
-        , updateFulfillHtlcId              = htlcId
+        , updateFulfillHtlcId              = htlcId hid
         , updateFulfillHtlcPaymentPreimage = preimage
         , updateFulfillHtlcTlvs            = tlvs
         }
@@ -1185,7 +1192,7 @@ encodeUpdateFailHtlc !m = do
   reasonEnc <- encodeU16BytesE (updateFailHtlcReason m)
   Right $! mconcat
     [ unChannelId (updateFailHtlcChannelId m)
-    , encodeU64 (updateFailHtlcId m)
+    , encodeU64 (unHtlcId (updateFailHtlcId m))
     , reasonEnc
     , encodeTlvStream (updateFailHtlcTlvs m)
     ]
@@ -1195,13 +1202,13 @@ decodeUpdateFailHtlc
   :: BS.ByteString -> Either DecodeError (UpdateFailHtlc, BS.ByteString)
 decodeUpdateFailHtlc !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                       (decodeU64 rest1)
+  (hid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   (reason, rest3) <- decodeU16Bytes rest2
   (tlvs, rest4) <- decodeOptionalTlvs rest3
   let !msg = UpdateFailHtlc
         { updateFailHtlcChannelId = cid
-        , updateFailHtlcId        = htlcId
+        , updateFailHtlcId        = htlcId hid
         , updateFailHtlcReason    = reason
         , updateFailHtlcTlvs      = tlvs
         }
@@ -1211,7 +1218,7 @@ decodeUpdateFailHtlc !bs = do
 encodeUpdateFailMalformedHtlc :: UpdateFailMalformedHtlc -> BS.ByteString
 encodeUpdateFailMalformedHtlc !m = mconcat
   [ unChannelId (updateFailMalformedHtlcChannelId m)
-  , encodeU64 (updateFailMalformedHtlcId m)
+  , encodeU64 (unHtlcId (updateFailMalformedHtlcId m))
   , unPaymentHash (updateFailMalformedHtlcSha256Onion m)
   , encodeU16 (updateFailMalformedHtlcFailureCode m)
   ]
@@ -1221,13 +1228,13 @@ decodeUpdateFailMalformedHtlc
   :: BS.ByteString -> Either DecodeError (UpdateFailMalformedHtlc, BS.ByteString)
 decodeUpdateFailMalformedHtlc !bs = do
   (cid, rest1) <- decodeChannelIdBytes bs
-  (htlcId, rest2) <- maybe (Left DecodeInsufficientBytes) Right
-                       (decodeU64 rest1)
+  (hid, rest2) <- maybe (Left DecodeInsufficientBytes) Right
+                    (decodeU64 rest1)
   (sha256Onion, rest3) <- decodePaymentHashBytes rest2
   (failCode, rest4) <- decodeU16E rest3
   let !msg = UpdateFailMalformedHtlc
         { updateFailMalformedHtlcChannelId   = cid
-        , updateFailMalformedHtlcId          = htlcId
+        , updateFailMalformedHtlcId          = htlcId hid
         , updateFailMalformedHtlcSha256Onion = sha256Onion
         , updateFailMalformedHtlcFailureCode = failCode
         }

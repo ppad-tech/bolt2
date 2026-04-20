@@ -237,7 +237,7 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
       testCase "encode/decode roundtrip" $ do
         let msg = TxAddInput
               { txAddInputChannelId = testChannelId
-              , txAddInputSerialId = 12345
+              , txAddInputSerialId = serialId 12345
               , txAddInputPrevTx = BS.pack [0x01, 0x02, 0x03, 0x04]
               , txAddInputPrevVout = 0
               , txAddInputSequence = 0xfffffffe
@@ -250,7 +250,7 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
     , testCase "roundtrip with empty prevTx" $ do
         let msg = TxAddInput
               { txAddInputChannelId = testChannelId
-              , txAddInputSerialId = 0
+              , txAddInputSerialId = serialId 0
               , txAddInputPrevTx = BS.empty
               , txAddInputPrevVout = 0
               , txAddInputSequence = 0
@@ -265,7 +265,7 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
       testCase "encode/decode roundtrip" $ do
         let msg = TxAddOutput
               { txAddOutputChannelId = testChannelId
-              , txAddOutputSerialId = 54321
+              , txAddOutputSerialId = serialId 54321
               , txAddOutputSats = Satoshi 100000
               , txAddOutputScript = scriptPubKey (BS.pack [0x00, 0x14] <>
                                                   BS.replicate 20 0xaa)
@@ -280,7 +280,7 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
       testCase "encode/decode roundtrip" $ do
         let msg = TxRemoveInput
               { txRemoveInputChannelId = testChannelId
-              , txRemoveInputSerialId = 12345
+              , txRemoveInputSerialId = serialId 12345
               }
             encoded = encodeTxRemoveInput msg
         case decodeTxRemoveInput encoded of
@@ -291,7 +291,7 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
       testCase "encode/decode roundtrip" $ do
         let msg = TxRemoveOutput
               { txRemoveOutputChannelId = testChannelId
-              , txRemoveOutputSerialId = 54321
+              , txRemoveOutputSerialId = serialId 54321
               }
             encoded = encodeTxRemoveOutput msg
         case decodeTxRemoveOutput encoded of
@@ -385,19 +385,19 @@ v2_establishment_tests = testGroup "V2 Channel Establishment" [
 close_tests :: TestTree
 close_tests = testGroup "Channel Close" [
     testGroup "Stfu" [
-      testCase "encode/decode initiator=1" $ do
+      testCase "encode/decode IsInitiator" $ do
         let msg = Stfu
               { stfuChannelId = testChannelId
-              , stfuInitiator = 1
+              , stfuInitiator = IsInitiator
               }
             encoded = encodeStfu msg
         case decodeStfu encoded of
           Right (decoded, _) -> decoded @?= msg
           Left e -> assertFailure $ "decode failed: " ++ show e
-    , testCase "encode/decode initiator=0" $ do
+    , testCase "encode/decode NotInitiator" $ do
         let msg = Stfu
               { stfuChannelId = testChannelId
-              , stfuInitiator = 0
+              , stfuInitiator = NotInitiator
               }
             encoded = encodeStfu msg
         case decodeStfu encoded of
@@ -493,7 +493,7 @@ normal_operation_tests = testGroup "Normal Operation" [
       testCase "encode/decode roundtrip" $ do
         let msg = UpdateAddHtlc
               { updateAddHtlcChannelId = testChannelId
-              , updateAddHtlcId = 0
+              , updateAddHtlcId = htlcId 0
               , updateAddHtlcAmountMsat = MilliSatoshi 10000000
               , updateAddHtlcPaymentHash = testPaymentHash
               , updateAddHtlcCltvExpiry = 800144
@@ -509,7 +509,7 @@ normal_operation_tests = testGroup "Normal Operation" [
       testCase "encode/decode roundtrip" $ do
         let msg = UpdateFulfillHtlc
               { updateFulfillHtlcChannelId = testChannelId
-              , updateFulfillHtlcId = 42
+              , updateFulfillHtlcId = htlcId 42
               , updateFulfillHtlcPaymentPreimage = testPaymentPreimage
               , updateFulfillHtlcTlvs = emptyTlvs
               }
@@ -522,7 +522,7 @@ normal_operation_tests = testGroup "Normal Operation" [
       testCase "encode/decode roundtrip" $ do
         let msg = UpdateFailHtlc
               { updateFailHtlcChannelId = testChannelId
-              , updateFailHtlcId = 42
+              , updateFailHtlcId = htlcId 42
               , updateFailHtlcReason = BS.replicate 32 0xaa
               , updateFailHtlcTlvs = emptyTlvs
               }
@@ -534,7 +534,7 @@ normal_operation_tests = testGroup "Normal Operation" [
     , testCase "roundtrip with empty reason" $ do
         let msg = UpdateFailHtlc
               { updateFailHtlcChannelId = testChannelId
-              , updateFailHtlcId = 0
+              , updateFailHtlcId = htlcId 0
               , updateFailHtlcReason = BS.empty
               , updateFailHtlcTlvs = emptyTlvs
               }
@@ -548,7 +548,7 @@ normal_operation_tests = testGroup "Normal Operation" [
       testCase "encode/decode roundtrip" $ do
         let msg = UpdateFailMalformedHtlc
               { updateFailMalformedHtlcChannelId = testChannelId
-              , updateFailMalformedHtlcId = 42
+              , updateFailMalformedHtlcId = htlcId 42
               , updateFailMalformedHtlcSha256Onion = testPaymentHash
               , updateFailMalformedHtlcFailureCode = 0x8002
               }
@@ -679,6 +679,13 @@ error_tests = testGroup "Error Conditions" [
         case decodeShutdown (BS.replicate 32 0x00) of
           Left DecodeInsufficientBytes -> pure ()
           other -> assertFailure $ "expected insufficient: " ++ show other
+    , testCase "decodeStfu invalid initiator byte" $ do
+        -- channel_id (32 bytes) + initiator (1 byte, value 2)
+        let encoded = BS.replicate 32 0xab <> BS.singleton 0x02
+        case decodeStfu encoded of
+          Left DecodeInvalidInitiator -> pure ()
+          other -> assertFailure $
+            "expected invalid initiator: " ++ show other
     , testCase "decodeUpdateAddHtlc too short" $ do
         case decodeUpdateAddHtlc (BS.replicate 100 0x00) of
           Left DecodeInsufficientBytes -> pure ()
@@ -970,7 +977,7 @@ propTxAddInputRoundtrip prevTxBytes vout seqNum = property $ do
   let prevTx = BS.pack (take 1000 prevTxBytes)  -- limit size
       msg = TxAddInput
         { txAddInputChannelId = testChannelId
-        , txAddInputSerialId = 12345
+        , txAddInputSerialId = serialId 12345
         , txAddInputPrevTx = prevTx
         , txAddInputPrevVout = vout
         , txAddInputSequence = seqNum
@@ -987,7 +994,7 @@ propTxAddOutputRoundtrip sats scriptBytes = property $ do
   let script = scriptPubKey (BS.pack (take 100 scriptBytes))
       msg = TxAddOutput
         { txAddOutputChannelId = testChannelId
-        , txAddOutputSerialId = 54321
+        , txAddOutputSerialId = serialId 54321
         , txAddOutputSats = Satoshi sats
         , txAddOutputScript = script
         }
@@ -999,10 +1006,10 @@ propTxAddOutputRoundtrip sats scriptBytes = property $ do
 
 -- Property: TxRemoveInput roundtrip
 propTxRemoveInputRoundtrip :: Word64 -> Property
-propTxRemoveInputRoundtrip serialId = property $ do
+propTxRemoveInputRoundtrip sid = property $ do
   let msg = TxRemoveInput
         { txRemoveInputChannelId = testChannelId
-        , txRemoveInputSerialId = serialId
+        , txRemoveInputSerialId = serialId sid
         }
       encoded = encodeTxRemoveInput msg
   case decodeTxRemoveInput encoded of
@@ -1011,10 +1018,10 @@ propTxRemoveInputRoundtrip serialId = property $ do
 
 -- Property: TxRemoveOutput roundtrip
 propTxRemoveOutputRoundtrip :: Word64 -> Property
-propTxRemoveOutputRoundtrip serialId = property $ do
+propTxRemoveOutputRoundtrip sid = property $ do
   let msg = TxRemoveOutput
         { txRemoveOutputChannelId = testChannelId
-        , txRemoveOutputSerialId = serialId
+        , txRemoveOutputSerialId = serialId sid
         }
       encoded = encodeTxRemoveOutput msg
   case decodeTxRemoveOutput encoded of
@@ -1086,11 +1093,12 @@ propTxAbortRoundtrip dataBytes = property $ do
       Left _ -> False
 
 -- Property: Stfu roundtrip
-propStfuRoundtrip :: Word8 -> Property
-propStfuRoundtrip initiator = property $ do
-  let msg = Stfu
+propStfuRoundtrip :: Bool -> Property
+propStfuRoundtrip isInit = property $ do
+  let ini = if isInit then IsInitiator else NotInitiator
+      msg = Stfu
         { stfuChannelId = testChannelId
-        , stfuInitiator = initiator
+        , stfuInitiator = ini
         }
       encoded = encodeStfu msg
   case decodeStfu encoded of
@@ -1169,10 +1177,10 @@ propClosingSigRoundtrip feeSats locktime = property $ do
 
 -- Property: UpdateAddHtlc roundtrip
 propUpdateAddHtlcRoundtrip :: Word64 -> Word64 -> Word32 -> Property
-propUpdateAddHtlcRoundtrip htlcId amountMsat cltvExpiry = property $ do
+propUpdateAddHtlcRoundtrip hid amountMsat cltvExpiry = property $ do
   let msg = UpdateAddHtlc
         { updateAddHtlcChannelId = testChannelId
-        , updateAddHtlcId = htlcId
+        , updateAddHtlcId = htlcId hid
         , updateAddHtlcAmountMsat = MilliSatoshi amountMsat
         , updateAddHtlcPaymentHash = testPaymentHash
         , updateAddHtlcCltvExpiry = cltvExpiry
@@ -1186,10 +1194,10 @@ propUpdateAddHtlcRoundtrip htlcId amountMsat cltvExpiry = property $ do
 
 -- Property: UpdateFulfillHtlc roundtrip
 propUpdateFulfillHtlcRoundtrip :: Word64 -> Property
-propUpdateFulfillHtlcRoundtrip htlcId = property $ do
+propUpdateFulfillHtlcRoundtrip hid = property $ do
   let msg = UpdateFulfillHtlc
         { updateFulfillHtlcChannelId = testChannelId
-        , updateFulfillHtlcId = htlcId
+        , updateFulfillHtlcId = htlcId hid
         , updateFulfillHtlcPaymentPreimage = testPaymentPreimage
         , updateFulfillHtlcTlvs = emptyTlvs
         }
@@ -1200,11 +1208,11 @@ propUpdateFulfillHtlcRoundtrip htlcId = property $ do
 
 -- Property: UpdateFailHtlc roundtrip
 propUpdateFailHtlcRoundtrip :: Word64 -> [Word8] -> Property
-propUpdateFailHtlcRoundtrip htlcId reasonBytes = property $ do
+propUpdateFailHtlcRoundtrip hid reasonBytes = property $ do
   let failReason = BS.pack (take 1000 reasonBytes)
       msg = UpdateFailHtlc
         { updateFailHtlcChannelId = testChannelId
-        , updateFailHtlcId = htlcId
+        , updateFailHtlcId = htlcId hid
         , updateFailHtlcReason = failReason
         , updateFailHtlcTlvs = emptyTlvs
         }
@@ -1216,10 +1224,10 @@ propUpdateFailHtlcRoundtrip htlcId reasonBytes = property $ do
 
 -- Property: UpdateFailMalformedHtlc roundtrip
 propUpdateFailMalformedHtlcRoundtrip :: Word64 -> Word16 -> Property
-propUpdateFailMalformedHtlcRoundtrip htlcId failCode = property $ do
+propUpdateFailMalformedHtlcRoundtrip hid failCode = property $ do
   let msg = UpdateFailMalformedHtlc
         { updateFailMalformedHtlcChannelId = testChannelId
-        , updateFailMalformedHtlcId = htlcId
+        , updateFailMalformedHtlcId = htlcId hid
         , updateFailMalformedHtlcSha256Onion = testPaymentHash
         , updateFailMalformedHtlcFailureCode = failCode
         }

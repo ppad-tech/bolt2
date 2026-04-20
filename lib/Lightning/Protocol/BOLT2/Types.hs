@@ -62,6 +62,17 @@ module Lightning.Protocol.BOLT2.Types (
   , scriptPubKey
   , unScriptPubKey
 
+  -- * Protocol identifiers
+  , HtlcId
+  , htlcId
+  , unHtlcId
+  , SerialId
+  , serialId
+  , unSerialId
+
+  -- * Quiescence
+  , Initiator(..)
+
   -- * Protocol types
   , FeatureBits
   , featureBits
@@ -85,6 +96,7 @@ module Lightning.Protocol.BOLT2.Types (
 import Bitcoin.Prim.Tx (TxId(..), mkTxId, OutPoint(..))
 import Control.DeepSeq (NFData)
 import qualified Data.ByteString as BS
+import Data.Word (Word64)
 import GHC.Generics (Generic)
 import Lightning.Protocol.BOLT1.Prim
   ( ChannelId(..), channelId, unChannelId
@@ -163,6 +175,48 @@ scriptPubKey = ScriptPubKey
 unScriptPubKey :: ScriptPubKey -> BS.ByteString
 unScriptPubKey (ScriptPubKey bs) = bs
 {-# INLINE unScriptPubKey #-}
+
+-- protocol identifiers -------------------------------------------------------
+
+-- | An HTLC identifier, unique per channel per direction.
+newtype HtlcId = HtlcId Word64
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving newtype NFData
+
+-- | Construct an 'HtlcId' from a 'Word64'.
+htlcId :: Word64 -> HtlcId
+htlcId = HtlcId
+{-# INLINE htlcId #-}
+
+-- | Extract the underlying 'Word64' from an 'HtlcId'.
+unHtlcId :: HtlcId -> Word64
+unHtlcId (HtlcId w) = w
+{-# INLINE unHtlcId #-}
+
+-- | A serial identifier for interactive transaction construction.
+newtype SerialId = SerialId Word64
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving newtype NFData
+
+-- | Construct a 'SerialId' from a 'Word64'.
+serialId :: Word64 -> SerialId
+serialId = SerialId
+{-# INLINE serialId #-}
+
+-- | Extract the underlying 'Word64' from a 'SerialId'.
+unSerialId :: SerialId -> Word64
+unSerialId (SerialId w) = w
+{-# INLINE unSerialId #-}
+
+-- quiescence -----------------------------------------------------------------
+
+-- | Role in quiescence (STFU) protocol.
+data Initiator
+  = IsInitiator   -- ^ This node initiated quiescence.
+  | NotInitiator  -- ^ This node did not initiate quiescence.
+  deriving stock (Eq, Ord, Show, Generic)
+
+instance NFData Initiator
 
 -- protocol types --------------------------------------------------------------
 
