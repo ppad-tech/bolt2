@@ -820,6 +820,10 @@ property_tests = testGroup "Properties" [
   , testProperty "RevokeAndAck roundtrip" propRevokeAndAckRoundtrip
   , testProperty "UpdateFee roundtrip" propUpdateFeeRoundtrip
   , testProperty "ChannelReestablish roundtrip" propChannelReestablishRoundtrip
+  , testProperty "HtlcId wrap/unwrap" propHtlcIdRoundtrip
+  , testProperty "SerialId wrap/unwrap" propSerialIdRoundtrip
+  , testProperty "OnionPacket validates length" propOnionPacketLength
+  , testProperty "TxId validates length" propTxIdLength
   ]
 
 -- Property: OpenChannel roundtrip
@@ -1293,6 +1297,32 @@ propChannelReestablishRoundtrip nextCommit nextRevoke = property $ do
   case decodeChannelReestablish encoded of
     Right (decoded, _) -> decoded == msg
     Left _ -> False
+
+-- Property: HtlcId wrap/unwrap
+propHtlcIdRoundtrip :: Word64 -> Property
+propHtlcIdRoundtrip w = property $ unHtlcId (htlcId w) == w
+
+-- Property: SerialId wrap/unwrap
+propSerialIdRoundtrip :: Word64 -> Property
+propSerialIdRoundtrip w = property $ unSerialId (serialId w) == w
+
+-- Property: OnionPacket validates length (1366 only)
+propOnionPacketLength :: NonNegative Int -> Property
+propOnionPacketLength (NonNegative n) = property $
+  let len = n `mod` 2000
+      bs = BS.replicate len 0x00
+  in case onionPacket bs of
+    Just _  -> len == onionPacketLen
+    Nothing -> len /= onionPacketLen
+
+-- Property: TxId validates length (32 only)
+propTxIdLength :: NonNegative Int -> Property
+propTxIdLength (NonNegative n) = property $
+  let len = n `mod` 100
+      bs = BS.replicate len 0x00
+  in case mkTxId bs of
+    Just _  -> len == 32
+    Nothing -> len /= 32
 
 -- Helpers ---------------------------------------------------------------------
 
