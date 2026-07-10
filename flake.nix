@@ -72,6 +72,7 @@
               cabal
               cc
               llvm
+              clang
             ];
 
             shellHook = ''
